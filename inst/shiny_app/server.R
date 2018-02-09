@@ -4,10 +4,7 @@ library("mxnet")
 library("imager")
 library("finFindR")
 
-#
-tags$style(type="text/css",
-           ".shiny-output-error { visibility: hidden; }",
-           ".shiny-output-error:before { visibility: hidden; }")
+
 options(shiny.maxRequestSize=10*1024^2)
 
 appendRecursive <- TRUE
@@ -27,7 +24,7 @@ cropNet <- mxnet::mx.model.load(file.path(networks,'crop'), 100)
 plotAngleVector <- function(angles)
 {
   par(mar = c(0,0,0,0))
-  plot((angles[[1]]+angles[[2]])/2,ylim=c(-pi/2,pi/2), pch=".", xaxt='n', ann=FALSE)
+  plot((angles[[1]]+angles[[2]])/2,ylim=c(-pi/2,pi/2), pch=" ", xaxt='n', ann=FALSE)
   lines(angles[[1]],col="blue")
   lines(angles[[2]],col="green")
 }
@@ -183,16 +180,29 @@ predict.MXmultiFeedForwardModel <- function(model, X, ctx = NULL,
 
 traceToHash <- function(traceData)
 {
-  angleVecsGrad <- sapply(traceData,
-                      FUN = function(trace){angleVector<-trace[[1]]
-                      
-                      return(atan2(spline(sin(angleVector),n=200)$y,
-                                   spline(cos(angleVector),n=200)$y))})
-  angleVecsColo <- sapply(traceData,
-                      FUN = function(trace){angleVector<-trace[[2]]
-                      
-                      return(atan2(spline(sin(angleVector),n=200)$y,
-                                   spline(cos(angleVector),n=200)$y))})
+  # angleVecsGrad <- sapply(traceData,
+  #                     FUN = function(trace){angleVector<-trace[[1]]
+  #                     
+  #                     return(atan2(spline(sin(angleVector),n=200)$y,
+  #                                  spline(cos(angleVector),n=200)$y))})
+  # angleVecsColo <- sapply(traceData,
+  #                     FUN = function(trace){angleVector<-trace[[2]]
+  #                     
+  #                     return(atan2(spline(sin(angleVector),n=200)$y,
+  #                                  spline(cos(angleVector),n=200)$y))})
+  angleVecs <- sapply(traceData,
+                          FUN = function(trace){
+                            gradNoiseLvl <- mean(diff(trace[[1]]))+mean(diff(trace[[1]][c(T,F,F,F)]))
+                            colorNoiseLvl <- mean(diff(trace[[2]]))+mean(diff(trace[[2]][c(T,F,F,F)]))
+                            
+                            if(colorNoiseLvl<gradNoiseLvl)
+                            {
+                              angleVector<-trace[[2]]
+                            }else{
+                              angleVector<-trace[[1]]
+                            }
+                          return(atan2(spline(sin(angleVector),n=200)$y,
+                                       spline(cos(angleVector),n=200)$y))})
   pathVecs <- sapply(traceData,
                       FUN = function(trace)
                       {
@@ -202,7 +212,8 @@ traceToHash <- function(traceData)
                         return(pathAngles)
                       })
   
-  finArray <- cbind(rbind(angleVecsGrad,pathVecs),rbind(angleVecsColo,pathVecs))
+  finArray <- rbind(angleVecs,pathVecs)
+  #finArray <- cbind(rbind(angleVecsGrad,pathVecs),rbind(angleVecsColo,pathVecs))
   #finArray <- cbind(finArray,-1*finArray)
   if(128-dim(finArray)[1]>0)
   {
@@ -222,8 +233,8 @@ traceToHash <- function(traceData)
                                                   allow.extra.params=T)
   rm(dataIter)
   
-  dim(netEmbedding) <- c(32,length(traceData),2)
-  netEmbedding <- apply(netEmbedding, 1:2, mean)
+  #dim(netEmbedding) <- c(32,length(traceData),2)
+  #netEmbedding <- apply(netEmbedding, 1:2, mean)
   
   print("NeuralNet embedding complete")
   hashList <- lapply(seq_len(ncol(netEmbedding)), function(i) netEmbedding[,i])
@@ -234,6 +245,7 @@ traceToHash <- function(traceData)
 cropDirectory <- function(searchDirectory,
                           saveDirectory,
                           cropNet,
+                          workingImage,
                           minXY=200,
                           includeSubDir=T,
                           mimicDirStructure=T)
@@ -265,11 +277,12 @@ cropDirectory <- function(searchDirectory,
       
       folderNames <- unlist(strsplit(dirStruct,"/"))
       folderNames <- folderNames[-length(folderNames)]
-      folderNames <- folderNames[-which(folderNames %in% c("") )]
+      folderNames <- folderNames[-which(folderNames %in% c("","\\") )]
       
       newDirStruct <- ""
       for(folder in folderNames)
       {
+        
         newDirStruct <- file.path(newDirStruct,folder)
         dir.create(file.path(saveDirectory,newDirStruct), showWarnings = FALSE)
       }
@@ -278,7 +291,8 @@ cropDirectory <- function(searchDirectory,
     }
     print("==== + ====")
     print(basename(imgName))
-    try(cropFins(imgName,cropNet, file.path(sub('/$','',saveDirectory),sub('^/','',newDirStruct)),minXY ))
+    #print(file.path(sub('/$','',saveDirectory),sub('^/','',newDirStruct)))
+    try(cropFins(imgName,cropNet,workingImage, file.path(sub('/$','',saveDirectory),sub('^/','',newDirStruct)),minXY ))
     incProgress(1/sum(index), detail = paste(basename(imgName)," -- ",progressTicker,"of",sum(index)))
     
     }
@@ -287,7 +301,15 @@ cropDirectory <- function(searchDirectory,
 
 processImageData <- function(directory,saveEnvir,appendNew,pathNet)
 {
+  # matching to single image
+  # if(file.exists(directory) && grepl("\\.JPG$||\\.jpg$",basename(directory)))
+  # {
+  #   imgPaths <- normalizePath(directory,"/")
+  # }else{
+  #   imgPaths <- getImgNames(directory)
+  # }
   imgPaths <- getImgNames(directory)
+  
   if(typeof(imgPaths) != "try-error" && length(imgPaths)!=0)
   {
     remove <- NULL
@@ -343,7 +365,9 @@ processImageData <- function(directory,saveEnvir,appendNew,pathNet)
 loadRdata <- function(directory,saveEnvir,appendNew,isRef)
 {
   print("searching")
-  RdataFiles <- try(list.files(directory, full.names=TRUE, pattern="\\.Rdata$", recursive=appendNew))
+  browser()
+  
+  RdataFiles <- try(list.files(directory, full.names=TRUE, pattern="finFindR.*\\.Rdata$" ,recursive=appendNew))
   if(typeof(RdataFiles) != "try-error" && length(RdataFiles)>0)
   {
     tempEnvir <- new.env()
@@ -353,21 +377,20 @@ loadRdata <- function(directory,saveEnvir,appendNew,isRef)
     
     loopEnvir <- new.env()
     
-    for(RdataFile in dirname(RdataFiles))
+    for(RdataFile in RdataFiles)
     {
-      if(file.exists(file.path(RdataFile,"finFindR.Rdata")))
+      if(file.exists(file.path(RdataFile)))
       {
-        print(file.path(RdataFile,"finFindR.Rdata"))
-        load(file.path(RdataFile,"finFindR.Rdata"),loopEnvir)
-        
+        load(RdataFile)
+        RdataPath <- dirname(RdataFile)
         loopEnvir$hashData <- traceToHash(loopEnvir$traceData)
         
         # to make references dir invariant, we only saved the photo name and look for dir when we are loading
         if(isRef)
         {
-          names(loopEnvir$hashData) <- normalizePath(file.path(RdataFile,names(loopEnvir$hashData)))
-          names(loopEnvir$traceData) <- normalizePath(file.path(RdataFile,names(loopEnvir$traceData)))
-          names(loopEnvir$idData) <- normalizePath(file.path(RdataFile,names(loopEnvir$idData)))
+          names(loopEnvir$hashData) <- normalizePath(file.path(RdataPath,names(loopEnvir$hashData)))
+          names(loopEnvir$traceData) <- normalizePath(file.path(RdataPath,names(loopEnvir$traceData)))
+          names(loopEnvir$idData) <- normalizePath(file.path(RdataPath,names(loopEnvir$idData)))
         }
         tempEnvir$hashData <- append(tempEnvir$hashData,loopEnvir$hashData)
         tempEnvir$traceData <- append(tempEnvir$traceData,loopEnvir$traceData)
@@ -451,6 +474,8 @@ function(input, output, session) {
   sessionQuery <- new.env()
   sessionStorage <- new.env()
   plotsPanel <- new.env()
+  workingImage <- new.env()
+  
   #the table query panel is persistant and so is initialized here
   plotsPanel[["TableQuery"]] <- reactiveValues(fin=NULL,
                                                path=NULL,
@@ -780,7 +805,7 @@ function(input, output, session) {
              length(unlist(traceResults)[[1]])>0 &&
              !is.null(unlist(traceResults)[[1]]))
           {
-            plotsPanel[[readyToRetrace$panelID]]$angles <- traceResults[[1]][[1]]
+            plotsPanel[[readyToRetrace$panelID]]$angles <- traceResults[[1]][c(1,2)]
             plotsPanel[[readyToRetrace$panelID]]$path <- traceResults[[1]][[3]]
 
             incProgress(.25)
@@ -1401,6 +1426,10 @@ function(input, output, session) {
     print(cropPath)
     cropDirectory(searchDirectory=cropPath,
                   saveDirectory=paste0(cropPath,"_finFindR-Crops"),
-                  cropNet)
+                  cropNet,
+                  workingImage,
+                  minXY=100,
+                  includeSubDir=T,
+                  mimicDirStructure=T)
   })
 }

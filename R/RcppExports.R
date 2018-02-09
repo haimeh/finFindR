@@ -5,14 +5,6 @@ findPath <- function(edge, startx, starty, endx, endy, minX, maxX, minY, maxY, p
     .Call(`_finFindR_findPath`, edge, startx, starty, endx, endy, minX, maxX, minY, maxY, proximity)
 }
 
-initializeImg <- function(imageName, newX, newY) {
-    .Call(`_finFindR_initializeImg`, imageName, newX, newY)
-}
-
-saveCrop <- function(saveName, xMin, xMax, yMin, yMax, spanX, spanY, thresh) {
-    invisible(.Call(`_finFindR_saveCrop`, saveName, xMin, xMax, yMin, yMax, spanX, spanY, thresh))
-}
-
 fillGlare <- function(imageFromR, highlightCoordinates, aveThresh = 7L) {
     .Call(`_finFindR_fillGlare`, imageFromR, highlightCoordinates, aveThresh)
 }

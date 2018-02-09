@@ -1,42 +1,28 @@
 
-#helper function for cleaning up unwanted blobs
-# removeSparse <- function(blobs,minSize=1)
-# {
-#   for(blobValue in unique(blobs))
-#   {
-#     blobCoordinates <- get.locations(blobs,function(x){x==blobValue})
-#     if(nrow(blobCoordinates)<=minSize)
-#     {
-#       blobs[blobs==blobValue] <- 0
-#     }
-#   }
-#   return(blobs)
-# }
-
 #' @param imageName path to image to be cropped
 #' @param cropNet path to image to be cropped
 #' @param saveDir directory to save cropped image
 #' @export
-cropFins <- function(imageName,cropNet,saveDir,minXY=200)
+cropFins <- function(imageName,cropNet,workingImage,saveDir,minXY=100)
 {
   if(!("MXFeedForwardModel" %in% class(cropNet))){stop("network must be of class MXFeedForwardModel")}
   
-  image <- try(initializeImg(imageName,newX = 150,newY = 100))
-  if(!is.cimg(image)){stop(paste("failed to load image:",imageName))}
+  workingImage$origImg <-  suppressWarnings( as.cimg(aperm(jpeg::readJPEG(imageName,F),c(2,1,3))) )
   
-  image <- as.array(image)
+  image <- resize(workingImage$origImg,size_x = 150, size_y = 100, interpolation_type = 3)
   dim(image) <- c(150,100,3,1)
-  if(max(image)>1){image <- image/255}
+  image <- image/max(image)
   
   netOut <- mxnet:::predict.MXFeedForwardModel(X=image,
                                                model=cropNet,
                                                ctx=mxnet::mx.cpu(),
                                                array.layout = "colmajor")
-  
+  #browser()
+  #plot(as.cimg(netOut))
   #find strong blobs
-  #blobs <- removeSparse(label(netOut>.4,high_connectivity=F),25)
-  blobs <- label(clean(netOut>.25,5),high_connectivity=F)
-  edges <- clean(netOut>.75,3)
+  blobs <- erode_square(label(dilate_square(isoblur(netOut,.5) >.45,3),high_connectivity=F),3) 
+  plot(blobs)
+  edges <- netOut>.75
   
   keepers <- table(blobs*edges)
   if(length(keepers) > 1)
@@ -49,24 +35,31 @@ cropFins <- function(imageName,cropNet,saveDir,minXY=200)
     for(blobValue in unique(blobs)[which(unique(blobs)>0)])
     {
       blobInc <- blobInc+1
-      blobCoordinates <- get.locations(blobs,function(x)x==blobValue)
+      blobCoordinates <- get.locations(blobs,function(x)x==blobValue)-1
       
       width <- max(blobCoordinates$x)-min(blobCoordinates$x)
       height <- max(blobCoordinates$y)-min(blobCoordinates$y)
       
       if(max(width,height) < 3*min(width,height))
       {
-        marginX <- ceiling((width)/4)
-        marginY <- ceiling((height)/4)
+        marginX <- ceiling((width)/3)
+        marginY <- ceiling((height)/3)
         
         mainImgName <- strsplit(basename(imageName),"\\.")[[1]][1]
         
-        saveCrop(file.path(saveDir, paste0(mainImgName,"_",blobInc,".JPG")),
-                 min(blobCoordinates$x)-marginX,
-                 max(blobCoordinates$x)+marginX,
-                 min(blobCoordinates$y)-(2*marginY),
-                 max(blobCoordinates$y)+marginY,
-                 width(image),height(image),minXY)
+        stretchX <- ceiling(width(workingImage$origImg)/width(image))
+        stretchY <- ceiling(height(workingImage$origImg)/height(image))
+        
+        xSpan <- c(max( stretchX*(min(blobCoordinates$x)-marginX) ,1),
+                   min( stretchX*(max(blobCoordinates$x)+marginX) ,width(workingImage$origImg)) )
+        ySpan <- c(max( stretchY*(min(blobCoordinates$y-1)-marginY) ,1),
+                   min( stretchY*(max(blobCoordinates$y-1)+marginY) ,height(workingImage$origImg)))
+        
+        if(diff(xSpan) > minXY && diff(ySpan) > minXY)
+        {
+        save.image(suppressWarnings(as.cimg(workingImage$origImg[xSpan[1]:xSpan[2],
+                                        ySpan[1]:ySpan[2],,]))  ,file=file.path(saveDir, paste0(mainImgName,"_",blobInc,".jpg")),1.0)
+        }
         unlink( list.files(dirname(tempdir()), pattern = "\\.PPM$|\\.ppm$", full.names = T) )
       }
     }

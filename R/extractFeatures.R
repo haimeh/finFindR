@@ -183,16 +183,18 @@ isolateCurve <- function(fin,
   resizeSpanX <- netOutResizeFactors[1]*xSpan
   resizeSpanY <- netOutResizeFactors[2]*ySpan
   
+  # startPoint <- (startStopCoords[[1]]*resizeFactor)-(cumuResize*c(xSpan[1],ySpan[1]))
+  # endPoint <- (startStopCoords[[2]]*resizeFactor)-(cumuResize*c(xSpan[1],ySpan[1]))
+  
   if(!is.null(startStopCoords))
   {
-    cropx <- min(startStopCoords[[1]]-1,floor(resizeSpanX[1])):max(startStopCoords[[1]]+1,ceiling(resizeSpanX[2]))
-    cropy <-  min(startStopCoords[[2]]-1,floor(resizeSpanY[1])):max(startStopCoords[[2]]+1,ceiling(resizeSpanY[2]))
-    fin <- suppressWarnings(as.cimg(fin[ cropx ,
-                                         cropy,,]))
-  }else{
-    fin <- suppressWarnings(as.cimg(fin[ floor(resizeSpanX[1]):ceiling(resizeSpanX[2]) ,
-                                         floor(resizeSpanY[1]):ceiling(resizeSpanY[2]),,]))
+    resizeSpanX <- c(min(startStopCoords[[1]][1]-1,startStopCoords[[2]][1]-1,floor(resizeSpanX[1])),
+                     max(startStopCoords[[1]][1]+1,startStopCoords[[2]][1]+1,ceiling(resizeSpanX[2])))
+    resizeSpanY <- c(min(startStopCoords[[1]][2]-1,startStopCoords[[2]][2]-1,floor(resizeSpanY[1])),
+                     max(startStopCoords[[1]][2]+1,startStopCoords[[2]][2]+1,ceiling(resizeSpanY[2])))
   }
+  fin <- suppressWarnings(as.cimg(fin[ floor(resizeSpanX[1]):ceiling(resizeSpanX[2]) ,
+                                       floor(resizeSpanY[1]):ceiling(resizeSpanY[2]),,]))
   
   if(height(fin) > 2000)
   {
@@ -212,8 +214,7 @@ isolateCurve <- function(fin,
   }
 
   cumuResize <- (netOutResizeFactors*resizeFactor)
-  resizeSpanX <- round(cumuResize[1]*xSpan)
-  resizeSpanY <- round(cumuResize[2]*ySpan)
+  
   edgeFilter <- resize( netOut ,size_x = width(fin) , size_y = height(fin),interpolation_type = 3)/max(netOut)
   
   if(!any(netOut>.5))
@@ -461,8 +462,8 @@ isolateCurve <- function(fin,
     print("using user provided start stops")
     print(startStopCoords)
     
-    startPoint <- (startStopCoords[[1]]*resizeFactor)-(cumuResize*c(xSpan[1],ySpan[1])) #-round(cumuResize[1]*xSpan[1])
-    endPoint <- (startStopCoords[[2]]*resizeFactor)-(cumuResize*c(xSpan[1],ySpan[1])) #-round(cumuResize[1]*xSpan)
+    startPoint <- (startStopCoords[[1]]*resizeFactor)-c(resizeSpanX[1],resizeSpanY[1])*resizeFactor#(cumuResize*c(xSpan[1],ySpan[1])) #-round(cumuResize[1]*xSpan[1])
+    endPoint <- (startStopCoords[[2]]*resizeFactor)-c(resizeSpanX[1],resizeSpanY[1])*resizeFactor#(cumuResize*c(xSpan[1],ySpan[1])) #-round(cumuResize[1]*xSpan)
     
     endProxRatio <- 10
   }
@@ -476,8 +477,11 @@ isolateCurve <- function(fin,
   print(startPoint)
   pathMap <- minimalEdge*edgeFilter*sorbel
   
-  restoreSizer <- netOutResizeFactors*c(xSpan[1],ySpan[1])
-  restoreCumuSizer <- cumuResize*c(xSpan[1],ySpan[1])
+  # resizeSpanX <- netOutResizeFactors[1]*xSpan
+  # resizeSpanY <- netOutResizeFactors[2]*ySpan
+  
+  #affineFactor <- netOutResizeFactors*c(xSpan[1],ySpan[1])
+  affineFactor <- c(resizeSpanX[1],resizeSpanY[1])
   
   trailingFeatues <- filterFeatures(as.matrix(parmax(list(pathMap/max(pathMap),as.cimg(pathMap>(mean(pathMap[pathMap>0.0])/2.0) ))) ), #as.matrix(pathMap+pathMap>mean(pathMap[pathMap>0]) ),
                                     angleGrad,
@@ -486,7 +490,7 @@ isolateCurve <- function(fin,
                                     round(endPoint),
                                     endProxRatio,
                                     resizeFactor,
-                                    restoreSizer)
+                                    affineFactor)
   print("Trace Complete")
   # plot(rawEdges);points(t(startPoint),col="green");points(t(endPoint),col="red")
   # trail <- cbind(
