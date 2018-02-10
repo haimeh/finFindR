@@ -17,11 +17,8 @@ cropFins <- function(imageName,cropNet,workingImage,saveDir,minXY=100)
                                                model=cropNet,
                                                ctx=mxnet::mx.cpu(),
                                                array.layout = "colmajor")
-  #browser()
-  #plot(as.cimg(netOut))
-  #find strong blobs
+  
   blobs <- erode_square(label(dilate_square(isoblur(netOut,.5) >.45,3),high_connectivity=F),3) 
-  plot(blobs)
   edges <- netOut>.75
   
   keepers <- table(blobs*edges)

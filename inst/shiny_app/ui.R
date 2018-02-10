@@ -44,11 +44,11 @@ navbarPage("FinFindR",
             label = "Crop"
           )
         ),
-        actionButton(
-          inputId = "clearQuery",
-          label = "Clear Queries"
-        ),
-        
+        # actionButton(
+        #   inputId = "clearQuery",
+        #   label = "Clear Queries"
+        # ),
+        h1(" "),#just for space
         #get data in dir from specified form
         textInput(
           inputId = "referenceDirectory",
@@ -130,7 +130,7 @@ navbarPage("FinFindR",
           plotOutput("hashComparison",
                      click = clickOpts(id = "clickHashMap",clip = TRUE), 
                      dblclick = clickOpts(id = "dblclickHashMap",clip = TRUE), 
-                     brush = brushOpts("brush",direction = "y",resetOnNew = TRUE,delay = 1000),
+                     brush = brushOpts("brush",direction = "y",resetOnNew = TRUE,delay = 500),
                      hover = hoverOpts(id = "hover"))
           )
         )
