@@ -1,11 +1,15 @@
 
-
 library(shiny)
 
-navbarPage("FinFindR",
+fluidPage(
+  titlePanel(title=div(
+     "finFindR",
+     img(src='nmmf.png', height = '65px',align = "right"),
+     img(src='west.png', height = '60px',align = "right")
+      
+    )),
   sidebarLayout(
     sidebarPanel(
-        
         actionButton("saveRdata","Save Session Rdata"),
         actionButton("concatRdata","Concatenate Reference Rdata"),
         
@@ -20,9 +24,10 @@ navbarPage("FinFindR",
         radioButtons(
           inputId = "inputType",
           label = "Select Input Type",
-          choices = c("Rdata","Image","Field")
+          choices = c("Rdata","Image","Field","Label"),
+          inline = T
         ),
-
+        
         conditionalPanel(
           condition = "input.inputType == 'Image'",
           actionButton(
@@ -44,6 +49,27 @@ navbarPage("FinFindR",
             label = "Crop"
           )
         ),
+        conditionalPanel(
+          condition = "input.inputType == 'Label'",
+          fluidRow(
+            column(width=8,
+                   HTML("<div style='height: 45px;'>"),
+                   fileInput(label=NULL,inputId="csvLabeler",accept=".csv"),
+                   HTML("</div>")
+            ),
+            column(width=3,
+              actionButton(
+                inputId = "labelWithCSV",
+                label = "Apply"
+              )
+            )
+          ),
+          checkboxInput(
+            inputId = "removeForeign",
+            label = "Remove Image if not Included in CSV",
+            value = F
+          )
+        ),
         # actionButton(
         #   inputId = "clearQuery",
         #   label = "Clear Queries"
@@ -62,20 +88,23 @@ navbarPage("FinFindR",
           choices = c("Rdata")
         ),
         
+        fluidRow(
+          column(width=4,
         conditionalPanel(
           condition = "input.referenceType == 'Rdata'",
           actionButton(
             inputId = "loadRdataRef",
             label = "Load Rdata"
           )
-        ),
+        )),
+        column(width=2,
         actionButton(
           inputId = "clearRef",
           label = "Clear References"
-        ),
+        ))),
     width = 3
     ),
-
+    
     mainPanel(
       tags$style(type="text/css",
                  ".shiny-output-error { visibility: hidden; }",
@@ -115,7 +144,24 @@ navbarPage("FinFindR",
                    
             )
           ),
-
+          #fluidRow(
+            #column(width = 3,
+                   radioButtons(
+                     inputId = "rankLim",
+                     label = "Rank",
+                     inline = T,
+                     choices = c(5,10,20,50),
+                     selected = 10
+                   #)
+            ),
+            #column(width = 2,
+                   checkboxInput(
+                     inputId = "topPerId",
+                     label = "1 Per ID",
+                     value = FALSE
+                   #)
+            ),
+          #),
           tabsetPanel(id = "matchesTblPanel",
                       tabPanel("DistanceTab",DT::dataTableOutput("matchDistance"),downloadButton("DistanceTableDownload")),
                       tabPanel("IDTab",DT::dataTableOutput("matchID"),downloadButton("IDTableDownload")),
