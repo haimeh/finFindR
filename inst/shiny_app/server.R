@@ -997,7 +997,7 @@ function(input, output, session) {
     if(!is.na(imageNameTableQuery()) && length(imageNameTableQuery())>0 )
     {
       generateDisplayHeader("TableQuery",
-                            mode= plotsPanel[["TableQuery"]]$mode,
+                            mode = plotsPanel[["TableQuery"]]$mode,
                             closeOption = F,
                             fixOption = T)
     }
