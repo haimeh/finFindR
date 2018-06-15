@@ -10,8 +10,8 @@ https://github.com/haimeh/finFindR/releases
 
 Raw images collected in the field are prepped for cataloging in two steps.
 A neural network isolates fins from the image and selects a region that surrounds each contiguous region of activation
-![alt text](inst/procImg/rawField.png)
-![alt text](inst/procImg/finHighlighted.png)
+![alt text](inst/procImg/rawField.PNG)
+![alt text](inst/procImg/finHighlighted.PNG)
 Each selection is then cropped and saved
 ![alt text](inst/procImg/crop.PNG)
 
@@ -24,7 +24,7 @@ from the crop, the enhanced canny-edges(white) are calculated and the optimal-tr
 This optimal path is used as a guide to extract the input for the neural network.
 The input takes the form of 200 samples from along the optimal path.
 Each sample consists of a ring around the sample position where the ring is composed of 16 subsamples of the image values.
-![alt text](https://github.com/haimeh/finFindR/tree/master/inst/procImg/chromaTrace.PNG)
+![alt text](inst/procImg/chromaTrace.PNG)
 These measurements quantify overall shape and details such as knicks. The matching algorithm consisted of a deep convolutional neural network
 based on the ResNet architecture, which generated a large-margin nearest neighbor metric. The
 network was trained using a k-neighbors soft-triplet loss objective.
