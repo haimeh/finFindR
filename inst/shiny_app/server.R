@@ -6,38 +6,38 @@ library("finFindR")
 
 
 options(shiny.maxRequestSize=10*1024^2)
+options(stringsAsFactors=FALSE)
 
 appendRecursive <- TRUE
 plotLim <- 4
-topXmatches <- 50
 
 networks <- system.file("extdata", package="finFindR")
 
-pathNet <- mxnet::mx.model.load(file.path(networks,'path'), 100)
-mxnetModel <- mxnet::mx.model.load(file.path(networks,'residualHashNet'), 1)
-cropNet <- mxnet::mx.model.load(file.path(networks,'crop'), 100)
+pathNet <- mxnet::mx.model.load(file.path(networks,'tracePath_256'), 60)
+mxnetModel <- mxnet::mx.model.load(file.path(networks,'fin_triplet_4096_out'), 2800)
+cropNet <- mxnet::mx.model.load(file.path(networks,'finLocate_256'), 200)
 
 
 # --- Helper functions -----------------------------------------------------------------------------------------
 # ==================================================================================================================
 
-plotAngleVector <- function(angles)
-{
-  par(mar = c(0,0,0,0))
-  plot((angles[[1]]+angles[[2]])/2,ylim=c(-pi/2,pi/2), pch=" ", xaxt='n', ann=FALSE)
-  lines(angles[[2]],col="green")
-  lines(angles[[1]],col="blue")
-}
-plotFinTrace <- function(fin,path,trace)
+plotFinTrace <- function(fin,coordinates,trace)
 {
   if(length(fin)>0)
   {
     par(mar = c(0,0,0,0))
-    if(trace && nrow(path) > 0)
+    if(length(coordinates)>0)
     {
-      plot(fin, ann=FALSE, asp = 1, axes = FALSE)
-      par(new=TRUE)
-      points(path[,1],path[,2],pch=".",col='red', ann=FALSE, asp = 0)
+      #dont forget to unlist coordinates
+      coordinates <- coordinates[[1]]
+      if(nrow(coordinates) > 0 && trace)
+      {
+        plot(fin, ann=FALSE, asp = 1, axes = FALSE)
+        par(new=TRUE)
+        points(coordinates[,1],coordinates[,2],pch=".",col='red', ann=FALSE, asp = 0)
+      }else{
+        plot(fin, ann=FALSE, axes = FALSE)
+      }
     }else{
       plot(fin, ann=FALSE, axes = FALSE)
     }
@@ -49,7 +49,7 @@ plotFinTrace <- function(fin,path,trace)
 getImgNames <- function(directory,saveEnvir)
 {
   print("searching")
-  imgs <- try(list.files(directory,full.names = T,pattern = "\\.JPG$||\\.jpg$"))
+  imgs <- try(list.files(directory,full.names = T,pattern = "\\.JPG$|\\.jpg$"))
   if(typeof(imgs) == "try-error" || length(imgs)==0)
   {
     showModal(modalDialog(
@@ -76,7 +76,7 @@ distanceToRef <- function(queryHash,referenceHash,counterEnvir=NULL)
     return(apply(referenceHash,2,
                  function(x,queryHash)
                  {
-                   distance <- acos(as.numeric(x) %*% as.numeric(queryHash) )
+                   distance <- sqrt(sum((as.numeric(x)-as.numeric(queryHash))^2))
                    return(if(!is.nan(distance)){distance}else{0})
                  },queryHash=queryHash)
     )
@@ -88,47 +88,37 @@ finIter <- setRefClass("finIter",
                        
                        fields=c("data",
                                 "iter",
-                                "data.shape",
-                                "batch.size"),
+                                "data.shape"),
                        
                        contains = "Rcpp_MXArrayDataIter",
                        
                        methods=list(
                          initialize=function(iter=NULL,
                                              data,
-                                             data.shape,
-                                             batch.size){
+                                             data.shape){
                            
                            data_len <- prod(data.shape)
-                           
+                           print(dim(data))
                            array_iter <- mx.io.arrayiter(data,
-                                                         label=rep(0,max(ncol(data))),
-                                                         batch.size=batch.size)
+                                                         label=rep(0,ncol(data)),
+                                                         batch.size=ncol(data))
                            
                            .self$iter <- array_iter
                            
                            .self$data.shape <- data.shape
                            
-                           .self$batch.size <- batch.size
-                           
                            .self
                          },
                          
                          value=function(){
-                           data <- as.array(.self$iter$value()$data)
+                           val.x <- as.array(.self$iter$value()$data)
                            
-                           dim(data) <- c(data.shape,2,batch.size)
+                           val.x[is.na(val.x) | is.nan(val.x) | is.infinite(val.x)]<-(.5)
+  
+                           dim(val.x) <- c(data.shape,16,3,ncol(val.x))
+                           val.x <- mx.nd.array(val.x)
                            
-                           
-                           val.v <- as.array(data[,1,])
-                           dim(val.v) <- c(data.shape,1,batch.size)
-                           val.v <- mx.nd.array(val.v)
-                           
-                           val.w <- as.array(data[,2,])
-                           dim(val.w) <- c(data.shape,1,batch.size)
-                           val.w <- mx.nd.array(val.w)
-                           
-                           list(angle=val.v,path=val.w)
+                           list(data=val.x)
                          },
                          
                          iter.next=function(){
@@ -146,101 +136,17 @@ finIter <- setRefClass("finIter",
                        )
 )
 
-predict.MXmultiFeedForwardModel <- function(model, X, ctx = NULL,
-                                            array.layout = "auto", 
-                                            input.names = NULL,
-                                            allow.extra.params = FALSE) {
-  X$reset()
-  if (!X$iter.next()) stop("Cannot predict on empty iterator")
-  dlist = X$value()
-  
-  arg_lst <- list(symbol = model$symbol, ctx = ctx, grad.req="null")
-  shape <- sapply(input.names, function(n){dim(X$value()[[n]])}, simplify = FALSE)
-  arg_lst <- append(arg_lst,shape)
-  
-  
-  
-  pexec <- do.call(mx.simple.bind, arg_lst)
-  if (allow.extra.params) {
-    model$arg.params[!names(model$arg.params) %in% arguments(model$symbol)] <- NULL
-  }
-  
-  mx.exec.update.arg.arrays(pexec, model$arg.params, match.name=TRUE)
-  mx.exec.update.aux.arrays(pexec, model$aux.params, match.name=TRUE)
-  
-  packer <- mxnet:::mx.nd.arraypacker()
-  X$reset()
-  while (X$iter.next()) {
-    dlist = X$value()
-    
-    mx.exec.update.arg.arrays(pexec, dlist, match.name=TRUE)
-    
-    mx.exec.forward(pexec, is.train=FALSE)
-    out.pred <- mx.nd.copyto(pexec$ref.outputs[[1]], mx.cpu())
-    padded <- X$num.pad()
-    oshape <- dim(out.pred)
-    ndim <- length(oshape)
-    packer$push(mxnet:::mx.nd.slice(out.pred, 0, oshape[[ndim]] - padded))
-  }
-  X$reset()
-  return(packer$get())
-}
-
-
 traceToHash <- function(traceData)
 {
-  # angleVecsGrad <- sapply(traceData,
-  #                     FUN = function(trace){angleVector<-trace[[1]]
-  #                     
-  #                     return(atan2(spline(sin(angleVector),n=200)$y,
-  #                                  spline(cos(angleVector),n=200)$y))})
-  # angleVecsColo <- sapply(traceData,
-  #                     FUN = function(trace){angleVector<-trace[[2]]
-  #                     
-  #                     return(atan2(spline(sin(angleVector),n=200)$y,
-  #                                  spline(cos(angleVector),n=200)$y))})
-  angleVecs <- sapply(traceData,
-                      FUN = function(trace){
-                        gradNoiseLvl <- mean(diff(trace[[1]]))+mean(diff(trace[[1]][c(T,F,F,F)]))
-                        colorNoiseLvl <- mean(diff(trace[[2]]))+mean(diff(trace[[2]][c(T,F,F,F)]))
-                        
-                        if(colorNoiseLvl<gradNoiseLvl)
-                        {
-                          angleVector<-trace[[2]]
-                        }else{
-                          angleVector<-trace[[1]]
-                        }
-                        return(atan2(spline(sin(angleVector),n=200)$y,
-                                     spline(cos(angleVector),n=200)$y))})
-  pathVecs <- sapply(traceData,
-                     FUN = function(trace)
-                     {
-                       pathVector<-trace[[3]]
-                       pathAngles <- atan2(approx(diff(pathVector[,1]*-1),n=200)$y,
-                                           approx(diff(pathVector[,2]),n=200)$y)
-                       return(pathAngles)
-                     })
-  
-  finArray <- rbind(angleVecs,pathVecs)
-  #browser()
-  #finArray <- cbind(rbind(angleVecsGrad,pathVecs),rbind(angleVecsColo,pathVecs))
-  #finArray <- cbind(finArray,-1*finArray)
-  if(128-dim(finArray)[1]>0)
-  {
-    finArray <- cbind(finArray,matrix(0, dim(finArray)[1], 128-dim(finArray)[2]))
-  }
-  finArray <- as.array(finArray)
-  #plot(finArray)
-  dataIter <- finIter$new(data = finArray,
-                          batch.size = 128,
+  iterInputFormat <- sapply(traceData,function(x){as.array(resize(x,size_x = 200,interpolation_type = 5))})
+  dataIter <- finIter$new(data = iterInputFormat,
                           data.shape = 200)
   print("embed")
-  netEmbedding <- predict.MXmultiFeedForwardModel(mxnetModel,
-                                                  dataIter,
-                                                  array.layout = "colmajor",
-                                                  input.names = c("angle","path"),
-                                                  ctx= mx.cpu(),
-                                                  allow.extra.params=T)
+  netEmbedding <- mxnet:::predict.MXFeedForwardModel(mxnetModel,
+                                                     dataIter,
+                                                     array.layout = "colmajor",
+                                                     ctx= mx.cpu(),
+                                                     allow.extra.params=T)
   rm(dataIter)
   
   #dim(netEmbedding) <- c(32,length(traceData),2)
@@ -313,13 +219,6 @@ cropDirectory <- function(searchDirectory,
 
 processImageData <- function(directory,saveEnvir,appendNew,pathNet)
 {
-  # matching to single image
-  # if(file.exists(directory) && grepl("\\.JPG$||\\.jpg$",basename(directory)))
-  # {
-  #   imgPaths <- normalizePath(directory,"/")
-  # }else{
-  #   imgPaths <- getImgNames(directory)
-  # }
   imgPaths <- getImgNames(directory)
   
   if(typeof(imgPaths) != "try-error" && length(imgPaths)!=0)
@@ -327,21 +226,25 @@ processImageData <- function(directory,saveEnvir,appendNew,pathNet)
     remove <- NULL
     
     hashData <- list()
-    traceData <- list()
+    traceImg <- list()
+    traceCoord <- list()
     idData <- NULL
     
     progressTicker <- 0
     for(img in imgPaths)
     {
+
       print(paste("loading",basename(img)))
       progressTicker <- progressTicker+1
       incProgress(1/length(imgPaths), detail = paste(basename(img)," -- ",progressTicker,"of",length(imgPaths)))
-      traceResults <- try(isolateCurve(load.image(img),NULL,pathNet))
+      traceResults <- try(traceFromImage(load.image(img),NULL,pathNet))
       if(class(traceResults)!="try-error" && 
          length(unlist(traceResults)[[1]])>0 &&
          !is.null(unlist(traceResults)[[1]]))
       {
-        traceData <- append(traceData,traceResults)
+        traceImg <- append(traceImg,list(traceResults$annulus))
+        traceCoord <- append(traceCoord,list(traceResults$coordinates))
+        
         idData <- append(idData,"unlabeled")
       }else{
         
@@ -352,14 +255,12 @@ processImageData <- function(directory,saveEnvir,appendNew,pathNet)
     }
     print(remove)
     if(length(remove)>0){print("removing");imgPaths <- imgPaths[-remove]}
-    
-    hashData <- traceToHash(traceData)
+    hashData <- as.data.frame(traceToHash(traceImg))
     
     # name lists of data
     names(hashData) <- basename(imgPaths)
-    names(traceData) <- basename(imgPaths)
+    names(traceCoord) <- basename(imgPaths)
     names(idData) <- basename(imgPaths)
-    
     if(!appendNew)
     {
       saveEnvir$hashData <- list()
@@ -368,13 +269,13 @@ processImageData <- function(directory,saveEnvir,appendNew,pathNet)
     }
     
     saveEnvir$hashData <- append(hashData,saveEnvir$hashData)
-    saveEnvir$traceData <- append(traceData,saveEnvir$traceData)
+    saveEnvir$traceData <- append(traceCoord,saveEnvir$traceData)
     saveEnvir$idData <- append(idData,saveEnvir$idData)
   }
 }
 
 
-loadRdata <- function(directory,saveEnvir,appendNew,isRef,recalcHash=F)
+loadRdata <- function(directory,saveEnvir,appendNew,isRef)
 {
   withProgress(
     message = "Searching for Rdata Files", value = 0,{
@@ -394,8 +295,6 @@ loadRdata <- function(directory,saveEnvir,appendNew,isRef,recalcHash=F)
         {
           print(paste(length(dirname(RdataFiles)),isRef,"of",file.path(RdataFile,"finFindR.Rdata")))
           load(file.path(RdataFile,"finFindR.Rdata"),loopEnvir)
-          
-          if(recalcHash){loopEnvir$hashData <- traceToHash(loopEnvir$traceData)}
           
           # to make references dir invariant, we only saved the photo name and look for dir when we are loading
           if(isRef)
@@ -456,30 +355,39 @@ calculateRankTable <- function(rankTable,sessionQuery,sessionReference)
   counterEnvir$length <- length(sessionQuery$hashData)
   withProgress(
     message = 'Matching', value = 0,
-    distances <- t(apply(data.frame(sessionQuery$hashData),2,function(x)distanceToRef(x,data.frame(sessionReference$hashData),counterEnvir)))
+    distances <- as.data.frame(t(apply(data.frame(sessionQuery$hashData),2,function(x)distanceToRef(x,data.frame(sessionReference$hashData),counterEnvir))))
   )
+  colnames(distances) <- NULL
+  
   if(length(distances)>0)
   {
     withProgress(
     message = 'Sorting', value = 0,{
-      sortingIndex <- apply(distances,1,function(x)order(x,decreasing = F))
+      sortingIndex <- as.data.frame(apply(distances,1,function(x)order(x,decreasing = F)))
       incProgress(1/6)
       rankTable$Name <- apply(sortingIndex,1,function(x)names(sessionReference$idData)[x])
+      # single queries need to be turned back from vectors
+      if(nrow(distances)<=1){rankTable$Name <- as.data.frame(t(rankTable$Name))}
       rownames(rankTable$Name) <- names(sessionQuery$hashData)
       incProgress(1/6)
-      rankTable$NameSimple <- matrix(basename(rankTable$Name),nrow=nrow(rankTable$Name),ncol=ncol(rankTable$Name))
+      
+      rankTable$NameSimple <- matrix(basename(as.character(rankTable$Name)),nrow=nrow(rankTable$Name),ncol=ncol(rankTable$Name))
       rownames(rankTable$NameSimple) <- names(sessionQuery$hashData)
       incProgress(1/6)
+      
       rankTable$ID <- apply(sortingIndex,1,function(x)sessionReference$idData[x])
+      # single queries need to be turned back from vectors
+      if(nrow(distances)<=1){rankTable$ID <- as.data.frame(t(rankTable$ID))}
       rownames(rankTable$ID) <- names(sessionQuery$hashData)
       incProgress(1/6)
+
       rankTable$Unique <- t(!apply(rankTable$ID,1,duplicated))
       rownames(rankTable$Unique) <- names(sessionQuery$hashData)
       incProgress(1/6)
+      
       rankTable$Distance <- t(apply(distances,1,function(x)sort(x,decreasing = F)))
       rownames(rankTable$Distance) <- names(sessionQuery$hashData)
       incProgress(1/6)
-      
     })
   }
 }
@@ -521,8 +429,7 @@ function(input, output, session) {
   
   #the table query panel is persistant and so is initialized here
   plotsPanel[["TableQuery"]] <- reactiveValues(fin=NULL,
-                                               path=NULL,
-                                               angles=NULL,
+                                               coord=NULL,
                                                locked=TRUE,
                                                mode="default")
   
@@ -540,7 +447,7 @@ function(input, output, session) {
         column(width = 3,checkboxInput(
           inputId = paste0("trace",instance),
           label = "Trace",
-          value = TRUE
+          value = FALSE
         ))
       )
     }else{
@@ -630,8 +537,7 @@ function(input, output, session) {
     displayActive$activeSelections <- NULL
     displayActive$lockedSelections <- NULL
     plotsPanel[["TableQuery"]]$fin=NULL
-    plotsPanel[["TableQuery"]]$path=NULL
-    plotsPanel[["TableQuery"]]$angles=NULL
+    plotsPanel[["TableQuery"]]$coord=NULL
     plotsPanel[["TableQuery"]]$locked=TRUE#included for consistancy
     plotsPanel[["TableQuery"]]$mode="default"
   })
@@ -643,26 +549,22 @@ function(input, output, session) {
       renameTable <- read.csv(input$csvLabeler$datapath)
       if(all(c("Image","CatalogID") %in% colnames(renameTable)))
       {
+        x <- data.frame(Image = as.character(unlist(renameTable['Image'])),ID=renameTable['CatalogID'])
+        y <- data.frame(Image=names(sessionQuery$idData),ids=sessionQuery$idData)
+        
         if(input$removeForeign)
         {
-          sessionQuery$hashData <- sessionQuery$hashData[renameTable$Image]
-          sessionQuery$hashData <- sessionQuery$hashData[!is.na(names(sessionQuery$hashData))]
-          sessionQuery$traceData <- sessionQuery$traceData[renameTable$Image]
-          sessionQuery$traceData <- sessionQuery$traceData[!is.na(names(sessionQuery$traceData))]
-          sessionQuery$idData <- sessionQuery$idData[renameTable$Image]
-          sessionQuery$idData <- sessionQuery$idData[!is.na(names(sessionQuery$idData))]
+          correction <- merge(x=x,y=y,by.x='Image', by.y='Image')
+        }else{
+          correction <- merge(x=x,y=y,by.x='Image', by.y='Image', all.y=T)
         }
-        for(imageName in names(sessionQuery$hashData))
-        {
-          if(!is.null(imageName) && !is.na(imageName))
-          {
-            newID <- renameTable$CatalogID[match(imageName,renameTable$Image)]
-            if(!is.null(newID) && !is.na(newID))
-            {
-              sessionQuery$idData[imageName] <- newID
-            }
-          }
-        }
+        
+        sessionQuery$idData <- as.integer(unlist(correction['CatalogID']))
+        sessionQuery$names(idData) <- as.character(unlist(correction['Image']))
+        
+        sessionQuery$hashData <- hashData[names(sessionQuery$idData)]
+        sessionQuery$traceData <- traceData[names(sessionQuery$idData)]
+
         rankTable$editCount <- rankTable$editCount+1
       }else{
         showModal(modalDialog(
@@ -769,6 +671,7 @@ function(input, output, session) {
     readyToRemove$imgName <- NULL
     readyToRemove$selected <- NULL
   })
+  
   verifyRemove <- function(name,hashRowSelection)
   {
     # hash selection only significant for cluster view
@@ -816,7 +719,6 @@ function(input, output, session) {
       readyToRetrace$traceResults <- list()
     }else{
       print("no changes")
-      browser()
       #plotsPanel[[readyToRetrace$panelID]]$mode <- "default"
     }
   }
@@ -826,8 +728,8 @@ function(input, output, session) {
   {
     if(length(readyToRetrace$traceResults)>0)
     {
-      targetEnvir$traceData[readyToRetrace$imgName] <-  readyToRetrace$traceResults
-      targetEnvir$hashData[readyToRetrace$imgName] <-  traceToHash( readyToRetrace$traceResults )
+      targetEnvir$traceData[readyToRetrace$imgName] <-  list(readyToRetrace$traceResults$coordinates)
+      targetEnvir$hashData[readyToRetrace$imgName] <-  list(traceToHash( list(readyToRetrace$traceResults$annulus )))
       print("retrace hash calculated")
       
       # --- recalculate rank table ------------------
@@ -890,13 +792,13 @@ function(input, output, session) {
                      detail = paste(readyToRetrace$imgName),
                      {
                        
-                       traceResults <- try(isolateCurve(load.image(file.path(readyToRetrace$directory,
+                       traceResults <- try(traceFromImage(load.image(file.path(readyToRetrace$directory,
                                                                              readyToRetrace$imgName)),
                                                         startStopPoints,
                                                         pathNet))
                        incProgress(.25)
                        #needed to fix bug in traceToHash function
-                       names(traceResults)<-NULL
+                       #names(traceResults)<-NULL
                        #names(traceResults)<-readyToRetrace$imgName
                        readyToRetrace$traceResults <- traceResults
                        
@@ -906,8 +808,7 @@ function(input, output, session) {
                           length(unlist(traceResults)[[1]])>0 &&
                           !is.null(unlist(traceResults)[[1]]))
                        {
-                         plotsPanel[[readyToRetrace$panelID]]$angles <- traceResults[[1]][c(1,2)]
-                         plotsPanel[[readyToRetrace$panelID]]$path <- traceResults[[1]][[3]]
+                         plotsPanel[[readyToRetrace$panelID]]$coord <- list(traceResults$coordinates)
                          
                          incProgress(.25)
                          print("rendered")
@@ -948,10 +849,11 @@ function(input, output, session) {
       {
         return(NULL)
       }else{
-
+        
+        #if(nrow(index)==1){table <- t(table)}
         sortedIndex <- t(apply(index,1,function(x)order(x,na.last = T,decreasing = T)))
         table[!index] <- NA
-        for(i in seq_len(nrow(table))){table[i,] <- table[i,sortedIndex[i,]]}
+        for(i in seq_len(nrow(table))){table[i,] <- table[i,sortedIndex[i,], drop=FALSE]}
         return(table)
       }
     }else{
@@ -962,9 +864,9 @@ function(input, output, session) {
                                         ID=NULL,
                                         Distance=NULL)
   observeEvent(rankTable$editCount,{
-    rankTableUniqueOnly$NameSimple <- topMatchPerClass(rankTable$NameSimple,rankTable$Unique)
-    rankTableUniqueOnly$ID <- topMatchPerClass(rankTable$ID,rankTable$Unique)
-    rankTableUniqueOnly$Distance <- topMatchPerClass(rankTable$Distance,rankTable$Unique)
+    rankTableUniqueOnly$NameSimple <- topMatchPerClass(rankTable$NameSimple, rankTable$Unique)
+    rankTableUniqueOnly$ID <- topMatchPerClass(rankTable$ID, rankTable$Unique)
+    rankTableUniqueOnly$Distance <- topMatchPerClass(rankTable$Distance, rankTable$Unique)
   })
   
   # --- tableQuery panel mod events
@@ -978,9 +880,8 @@ function(input, output, session) {
     cancelRetrace(readyToRetrace=readyToRetrace,
                   targetEnvir=sessionQuery)
     # reset outputs
-    plotsPanel[["TableQuery"]]$angles <- sessionQuery$traceData[imageNameTableQuery()][[1]][c(1,2)]
     plotsPanel[["TableQuery"]]$fin <- file.path(input$queryDirectory, imageNameTableQuery())
-    plotsPanel[["TableQuery"]]$path <- matrix(sessionQuery$traceData[imageNameTableQuery()][[1]][[3]] ,ncol=2)
+    plotsPanel[["TableQuery"]]$coord <- matrix(sessionQuery$traceData[imageNameTableQuery()] ,ncol=2)
     
   })
   observeEvent(input[[paste0("saveRetrace","TableQuery")]],ignoreInit=T,{
@@ -990,9 +891,8 @@ function(input, output, session) {
     print("save complete")
     
     # reset outputs
-    plotsPanel[["TableQuery"]]$angles <- sessionQuery$traceData[imageNameTableQuery()][[1]][c(1,2)]
     plotsPanel[["TableQuery"]]$fin <- file.path(input$queryDirectory, imageNameTableQuery())
-    plotsPanel[["TableQuery"]]$path <- matrix(sessionQuery$traceData[imageNameTableQuery()][[1]][[3]] ,ncol=2)
+    plotsPanel[["TableQuery"]]$coord <- matrix(sessionQuery$traceData[imageNameTableQuery()],ncol=2)
     
     print("outputs reset")
   })
@@ -1107,12 +1007,10 @@ function(input, output, session) {
   output$imageNameTableQuery <- renderText(imageNameTableQuery())
   output$imageIDTableQuery <- renderText(sessionQuery$idData[imageNameTableQuery()])
   
-  output$anglesTableQuery <- renderPlot(
-    plotAngleVector(plotsPanel[["TableQuery"]]$angles)
-  )
   output$imageTableQuery <- renderPlot({
+    print(paste('plot:',plotsPanel[["TableQuery"]]$fin))
     plotFinTrace(load.image(plotsPanel[["TableQuery"]]$fin),
-                 matrix(plotsPanel[["TableQuery"]]$path,ncol=2),
+                 plotsPanel[["TableQuery"]]$coord,
                  input$traceTableQuery)
   })
   
@@ -1121,9 +1019,9 @@ function(input, output, session) {
     index <- seq_len(min(as.integer(input$rankLim),ncol(rankTable$NameSimple)))
     if(input$topPerId)
     {
-      rankTableUniqueOnly$NameSimple[,index]
+      rankTableUniqueOnly$NameSimple[,index, drop=FALSE]
     }else{
-      rankTable$NameSimple[,index]
+      rankTable$NameSimple[,index, drop=FALSE]
     }},
     selection = list(mode="single",target = "cell"),
     options = list(lengthChange = T, rownames=T)
@@ -1132,20 +1030,22 @@ function(input, output, session) {
     index <- seq_len(min(as.integer(input$rankLim),ncol(rankTable$ID)))
     if(input$topPerId)
     {
-      rankTableUniqueOnly$ID[,index]
+      rankTableUniqueOnly$ID[,index, drop=FALSE]
     }else{
-      rankTable$ID[,index]
+      rankTable$ID[,index, drop=FALSE]
     }},
     selection = list(mode="single",target = "cell"),
     options = list(lengthChange = T, rownames=T)
   )
   output$matchDistance <- DT::renderDataTable({
+    print(rankTable$Distance)
+    print(dim(rankTable$Distance))
     index <- seq_len(min(as.integer(input$rankLim),ncol(rankTable$Distance)))
     if(input$topPerId)
     {
-      round(rankTableUniqueOnly$Distance[,index],2)
+      round(rankTableUniqueOnly$Distance[,index, drop=FALSE],2)
     }else{
-      round(rankTable$Distance[,index],2)
+      round(rankTable$Distance[,index, drop=FALSE],2)
     }},
     selection = list(mode="single",target = "cell"),
     options = list(lengthChange = T, rownames=T)
@@ -1228,8 +1128,6 @@ function(input, output, session) {
                    if(!is.null(sessionReference$hashData) && 
                       !is.null(sessionQuery$hashData))
                    {
-                     # up to 0.6 usualy good
-                     # up to 1.0 worth checking
                      print("calculating rank table")
                      calculateRankTable(rankTable,sessionQuery,sessionReference)
                      rankTable$editCount <- rankTable$editCount+1
@@ -1260,9 +1158,10 @@ function(input, output, session) {
                            cancelRetrace(readyToRetrace=readyToRetrace,
                                          targetEnvir=sessionQuery)
                          }
-                         plotsPanel[["TableQuery"]]$angles <- sessionQuery$traceData[imageNameTableQuery()][[1]][c(1,2)]
+
                          plotsPanel[["TableQuery"]]$fin <- file.path(input$queryDirectory, imageNameTableQuery())
-                         plotsPanel[["TableQuery"]]$path <- sessionQuery$traceData[imageNameTableQuery()][[1]][[3]]
+                         plotsPanel[["TableQuery"]]$coord <- sessionQuery$traceData[imageNameTableQuery()]
+                         
                          
                        }
                      }
@@ -1277,21 +1176,16 @@ function(input, output, session) {
                      output$imageTableRef <- renderPlot({
                        if(length(activeRankTableCell$cell)>1)
                        {
-                         fin <- load.image(rankTable$Name[activeRankTableCell$cell])
-                         path <- matrix(sessionReference$traceData[rankTable$Name[activeRankTableCell$cell]][[1]][[3]] ,ncol=2)
-                         plotFinTrace(fin,path,input$traceTableRef)
+                         print(paste('plot:',rankTable$Name[activeRankTableCell$cell]))
+                         plotFinTrace(load.image(rankTable$Name[activeRankTableCell$cell]),
+                                      sessionReference$traceData[rankTable$Name[activeRankTableCell$cell]],
+                                      input$traceTableRef)
+                         
+
                        }else{
                          NULL
                        }
                      })
-                     output$anglesTableRef <- renderPlot(
-                       if(length(activeRankTableCell$cell)>1)
-                       {
-                         plotAngleVector(sessionReference$traceData[rankTable$Name[activeRankTableCell$cell]][[1]][c(1,2)])
-                       }else{
-                         NULL
-                       }
-                     )
                    }
                  })
   
@@ -1477,27 +1371,24 @@ function(input, output, session) {
                   targetDir = input$queryDirectory,
                   readyToRetrace=readyToRetrace)
     })
+    
     # --- restore defaults upon cancel
     observeEvent(input[[paste0("cancelRetrace",panelID)]],ignoreInit=T,{
       cancelRetrace(readyToRetrace=readyToRetrace,
                     targetEnvir=sessionQuery)
-      plotsPanel[[panelID]]$angles <- targetEnvir$traceData[imageName][[1]][c(1,2)]
-      plotsPanel[[panelID]]$path <- targetEnvir$traceData[imageName][[1]][[3]]
+      plotsPanel[[panelID]]$coord <- targetEnvir$traceData[imageName]
     })
+    
     # --- save trace edit
     observeEvent(input[[paste0("saveRetrace",panelID)]],ignoreInit=T,{
       saveRetrace(readyToRetrac=readyToRetrace,
                   targetEnvir=sessionQuery)
-      
       print("save complete")
-      
       # reset outputs
-      plotsPanel[[panelID]]$angles <- targetEnvir$traceData[imageName][[1]][c(1,2)]
-      plotsPanel[[panelID]]$path <- targetEnvir$traceData[imageName][[1]][[3]]
-      
+      plotsPanel[[panelID]]$coord <- targetEnvir$traceData[imageName]
       print("outputs reset")
-      
     })
+    
     # --- lock window in place
     observeEvent(input[[paste0("lock",panelID)]],ignoreInit=T,{
       plotsPanel[[panelID]]$locked <- input[[paste0("lock",panelID)]]
@@ -1540,8 +1431,7 @@ function(input, output, session) {
     if(!exists(paste(panelID),envir = plotsPanel))
     {
       plotsPanel[[panelID]] <- reactiveValues(fin=NULL,
-                                              path=NULL,
-                                              angles=NULL,
+                                              coord=NULL,
                                               locked=FALSE,
                                               mode="default")
     }
@@ -1561,8 +1451,7 @@ function(input, output, session) {
       targetDir <- imageRegister
     }
     
-    plotsPanel[[panelID]]$angles <- targetEnvir$traceData[imageRegister][[1]][c(1,2)]
-    plotsPanel[[panelID]]$path <- targetEnvir$traceData[imageRegister][[1]][[3]]
+    plotsPanel[[panelID]]$coord <- targetEnvir$traceData[imageRegister]
     
     output[[paste0("header",panelID)]] <- renderUI({
       generateDisplayHeader(panelID,
@@ -1575,12 +1464,10 @@ function(input, output, session) {
     
     # --- image displays
     output[[paste0("image",panelID)]] <- renderPlot({
+      print(paste('plot:',targetDir))
       plotFinTrace(load.image(targetDir),
-                   plotsPanel[[panelID]]$path,
+                   plotsPanel[[panelID]]$coord,
                    input[[paste0("trace",panelID)]])#includeTrace
-    })
-    output[[paste0("angles",panelID)]] <- renderPlot({
-      plotAngleVector(plotsPanel[[panelID]]$angles)
     })
     
     
@@ -1589,8 +1476,7 @@ function(input, output, session) {
     return(
       column(width = 12,class = "well",
              uiOutput(paste0("header",panelID)),
-             plotOutput(paste0("image",panelID),click = clickOpts(id = paste("clickPointSet"),clip = TRUE)),
-             plotOutput(paste0("angles",panelID),height = 100)
+             plotOutput(paste0("image",panelID),click = clickOpts(id = paste("clickPointSet"),clip = TRUE))
       )
     )
   }

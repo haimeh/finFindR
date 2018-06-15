@@ -55,7 +55,22 @@ bool operator < (const node & a, const node & b)
 //vector of nodes to be made into a heap
 std::vector<node> node_heap;
 
-
+//' findPath
+//' 
+//' This function returns a NumeriMatrix, identifying the optimal edge
+//' Using the A* algorithm on a canny edge matrix weighted by a neural network
+//' The traversal balances clarity/smoothness of the edge against the network evaluation 
+//'
+//' @param edge Weighted canny edge matrix
+//' @param startx Starting pixel x component
+//' @param starty Starting pixel y component
+//' @param endx Ending pixel x component
+//' @param endy Ending pixel y component
+//' @param minX Left boundary
+//' @param maxX Right boundary
+//' @param minY Upper boundary
+//' @param maxY Lower boundary
+//' @param proximity Distance to ending coordinate at which trace can terminate
 // [[Rcpp::export]]
 std::vector<int> findPath(const Rcpp::NumericMatrix edge, 
                            const int startx, 
@@ -138,7 +153,7 @@ std::vector<int> findPath(const Rcpp::NumericMatrix edge,
       //finish if we are close to the end target
       if(node_heap.front().get_R() < proximity)
       {
-        Rcpp::Rcout <<"finished status: "<<node_heap.size()<<"  "<<x<<","<<y<<std::endl;
+        Rcpp::Rcout <<"finished size: "<<node_heap.size()<<"  "<<x<<","<<y<<std::endl;
         //backtrack from current node using the spawn directions(fwic) as a trail
         while (!(x == startx && y == starty))
         {
@@ -147,8 +162,7 @@ std::vector<int> findPath(const Rcpp::NumericMatrix edge,
           x = x-dx[backtrack.back()];
           y = y-dy[backtrack.back()];
         }
-        //Rcpp::IntegerVector directions = Rcpp::wrap(backtrack);
-        node_heap.clear();//node_heap.swap(node_heap);
+        node_heap.clear();
         return backtrack;
       }
   
@@ -165,8 +179,7 @@ std::vector<int> findPath(const Rcpp::NumericMatrix edge,
           x = x-dx[backtrack.back()];
           y = y-dy[backtrack.back()];
         }
-        //Rcpp::IntegerVector directions = Rcpp::wrap(backtrack);
-        node_heap.clear();//node_heap.swap(node_heap);
+        node_heap.clear();
         return backtrack;
       }
       
@@ -180,8 +193,7 @@ std::vector<int> findPath(const Rcpp::NumericMatrix edge,
         //make sure the new node would be within the image boundary
         //make sure the node isnt already tested
 
-        if(newy > minY && newy < maxY && newx > minX && newx < maxX && condition(newx,newy) < 1// &&
-           //std::sqrt(std::pow(std::abs(startx-newx),2)+std::pow(std::abs(starty-newy),2)) < maxRadius
+        if(newy > minY && newy < maxY && newx > minX && newx < maxX && condition(newx,newy) < 1
            )
         {
           //NEW NODE
@@ -205,7 +217,5 @@ std::vector<int> findPath(const Rcpp::NumericMatrix edge,
     x = x-dx[backtrack.back()];
     y = y-dy[backtrack.back()];
   }
-  //Rcpp::IntegerVector directions = Rcpp::wrap(backtrack);
-  //node_heap.clear();node_heap.swap(node_heap);//already empty
   return backtrack;
 }

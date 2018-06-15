@@ -5,6 +5,10 @@ findPath <- function(edge, startx, starty, endx, endy, minX, maxX, minY, maxY, p
     .Call(`_finFindR_findPath`, edge, startx, starty, endx, endy, minX, maxX, minY, maxY, proximity)
 }
 
+extractAnnulus <- function(imageFromR, xCoordinates, yCoordinates) {
+    .Call(`_finFindR_extractAnnulus`, imageFromR, xCoordinates, yCoordinates)
+}
+
 fillGlare <- function(imageFromR, highlightCoordinates, aveThresh = 7L) {
     .Call(`_finFindR_fillGlare`, imageFromR, highlightCoordinates, aveThresh)
 }

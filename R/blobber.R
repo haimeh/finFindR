@@ -1,9 +1,17 @@
-
+#' @title cropFins 
+#' @details Function loads image and uses the given neural network to isolate any dorsal fins therin.
+#' The neural network returns a matrix whose values range [0,1].
+#' Using a contiguous region algorithm (blob analysis),
+#' the x,y range for each excitation on the matrix is found.
+#' The range is then rescaled to find the analogous region in the original image.
+#' This region is cropped from said image and saved as a jpeg to the given directory.
 #' @param imageName path to image to be cropped
-#' @param cropNet path to image to be cropped
+#' @param workingImage workspace for holding image during processing
+#' @param cropNet mxnet model for isolating dolphin
 #' @param saveDir directory to save cropped image
+#' @param minXY minimum width/height in pixels for valid crop
 #' @export
-cropFins <- function(imageName,cropNet,workingImage,saveDir,minXY=100)
+cropFins <- function(imageName,cropNet,workingImage,saveDir,minXY=100,threshold=.45)
 {
   if(!("MXFeedForwardModel" %in% class(cropNet))){stop("network must be of class MXFeedForwardModel")}
   
@@ -18,8 +26,8 @@ cropFins <- function(imageName,cropNet,workingImage,saveDir,minXY=100)
                                                ctx=mxnet::mx.cpu(),
                                                array.layout = "colmajor")
   
-  blobs <- erode_square(label(dilate_square(isoblur(netOut,.5) >.45,3),high_connectivity=F),3) 
-  edges <- netOut>.75
+  blobs <- erode_square(label(dilate_square(isoblur(netOut,.5) > threshold,3),high_connectivity=F),3) 
+  edges <- netOut>(threshold+.25)
   
   keepers <- table(blobs*edges)
   if(length(keepers) > 1)

@@ -136,7 +136,7 @@ fluidPage(
                    checkboxInput(
                      inputId = "traceTableRef",
                      label = "Trace",
-                     value = TRUE
+                     value = FALSE
                    ),
                    plotOutput("imageTableRef"),
                    plotOutput("anglesTableRef",height = 100)

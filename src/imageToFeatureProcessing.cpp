@@ -5,23 +5,33 @@
 #include <algorithm>
 
 
-const int gaussianMask[7][7] =
-  {
-  0, 1, 1, 2, 1, 1, 0,
-  1, 1, 2, 2, 2, 1, 1,
-  1, 2, 2, 3, 2, 2, 1,
-  2, 2, 3, 3, 3, 2, 2,
-  1, 2, 2, 3, 2, 2, 1,
-  1, 1, 2, 2, 2, 1, 1,
-  0, 1, 1, 2, 1, 1, 0,
-  };
-
-//image should have glare cliped to 0 already
+//' fillGlare
+//' 
+//' This function returns a cimg wrapped as NumeriMatrix.
+//' Using a smoothing kernel, highlights are filled in based on the neighboring values.
+//' Iteratively fills in from outer edge inward.
+//' Image should have glare cliped to 0 already
+//'
+//' @param imageFromR cimg wraped as NumericVector
+//' @param highlightCoordinates Coordinates to fill in
+//' @param aveThresh Weighted sum, representing minimum number of neighboring non 0 pixels
+//' @export
 // [[Rcpp::export]]
 Rcpp::NumericVector fillGlare(const Rcpp::NumericVector imageFromR, 
                               const Rcpp::DataFrame highlightCoordinates, 
                               const int aveThresh=7)
 {
+  const int gaussianMask[7][7] =
+  {
+    0, 1, 1, 2, 1, 1, 0,
+    1, 1, 2, 2, 2, 1, 1,
+    1, 2, 2, 3, 2, 2, 1,
+    2, 2, 3, 3, 3, 2, 2,
+    1, 2, 2, 3, 2, 2, 1,
+    1, 1, 2, 2, 2, 1, 1,
+    0, 1, 1, 2, 1, 1, 0,
+  };
+  
   cimg_library::CImg<double> image = Rcpp::as< cimg_library::CImg<double> >(imageFromR);
   
   double gausSum = 0.0;
@@ -92,7 +102,13 @@ Rcpp::NumericVector fillGlare(const Rcpp::NumericVector imageFromR,
 
 
 
-
+//' simplifyAngles
+//' 
+//' This function returns a cimg of type int.
+//' Descritizes vectors represented by their angle into one of 4 sectors.
+//' Best visualized has the right half of the unit circle devided in 4
+//'
+//' @param ang cimg reference of type double
 cimg_library::CImg<int> simplifyAngles(const cimg_library::CImg<double> ang)
 {
   cimg_library::CImg<int> simplifiedAngles(ang.width(),ang.height(),1,1,0);
@@ -110,6 +126,16 @@ cimg_library::CImg<int> simplifyAngles(const cimg_library::CImg<double> ang)
   return simplifiedAngles;
 }
 
+//' nonMaxSuppress
+//' 
+//' This function returns a cimg of type double.
+//' Verifies the allignment between
+//' The apex of the gradient magnitude of x and y in the 3x3 region around each pixel,
+//' with the angle range estimated from the \code{simplifyAngles} function.
+//' Allignment is soft, in that overlap is allowed.
+//' 
+//' @param edge cimg reference of type double
+//' @param ang cimg reference of type int
 cimg_library::CImg<double> nonMaxSuppress(const cimg_library::CImg<double>& edge, 
                     const cimg_library::CImg<int>& ang)
 {
@@ -157,7 +183,20 @@ cimg_library::CImg<double> nonMaxSuppress(const cimg_library::CImg<double>& edge
   return newedge;
 }
 
-
+//' extractEdgeMap
+//' 
+//' This function returns a cimg wrapped as NumeriMatrix.
+//' using the gradient magnitude in the x and y directions,
+//' estimated by the imager function \code{imgradient}
+//' and the greadient angles
+//' estimated as atan(dy/dx) and subsequently simplified and discretized
+//' the canny edges are calculated, 
+//' defined as the points in the gradient magnitude map that are 
+//' greater than the 4(of the 8 posible) neighbors, orthogonal to the estimated angle
+//'
+//' @param gradientFromR cimg wraped as NumericVector
+//' @param anglesFromR cimg wraped as NumericVector
+//' @export
 // [[Rcpp::export]]
 Rcpp::NumericVector extractEdgeMap(const Rcpp::NumericVector gradientFromR, 
                                    const Rcpp::NumericVector anglesFromR)
@@ -166,163 +205,3 @@ Rcpp::NumericVector extractEdgeMap(const Rcpp::NumericVector gradientFromR,
   cimg_library::CImg<double> angles = Rcpp::as< cimg_library::CImg<double> >(anglesFromR);
   return Rcpp::wrap(nonMaxSuppress(gradient,simplifyAngles(angles)));
 }
-
-// [[Rcpp::export]]
-Rcpp::NumericVector extractAngles(const Rcpp::NumericVector angFromR, 
-                                  const Rcpp::IntegerVector backpath, 
-                                  const int startx, 
-                                  const int starty)
-{
-  cimg_library::CImg<double> ang = Rcpp::as< cimg_library::CImg<double> >(angFromR);
-  const int dx[8]={ 0, 1, 1, 1, 0, -1, -1, -1};
-  const int dy[8]={-1,-1, 0, 1, 1,  1,  0, -1};
-  
-  double angleDXMem[15][15]={0.0};
-  double angleDYMem[15][15]={0.0};
-  
-  Rcpp::Rcout << "extracting angles" << std::endl;
-  Rcpp::IntegerVector path = Rcpp::rev(backpath);
-  int x = startx;
-  int y = starty;
-  
-  double angleVal = 0.0;
-  
-  double angleDXMean = 0.0;
-  double angleDYMean = 0.0;
-  
-  double angleDXSum = 0.0;
-  double angleDYSum = 0.0;
-  int angleDXCount = 0;
-  int angleDYCount = 0;
-  
-  int angleInsideCount = 0;
-  int angleDXPosCount = 0;
-  int angleDYNegCount = 0;
-  int angleDXNegCount = 0;
-  int angleDYPosCount = 0;
-  
-  double angleDeviationDX = 0.0;
-  double angleDeviationDY = 0.0;
-  double angleDXTest = 0.0;
-  double angleDYTest = 0.0;
-  
-  double angleNegDXSD = 0.0;
-  double angleNegDYSD = 0.0;
-  double anglePosDXSD = 0.0;
-  double anglePosDYSD = 0.0;
-  
-  std::vector<double> angles;
-  Rcpp::IntegerVector::iterator it;
-  for(it = path.begin(); it != path.end(); ++it)
-  {
-    angleDXMean = 0.0;
-    angleDYMean = 0.0;
-    
-    angleDXSum = 0.0;
-    angleDYSum = 0.0;
-    angleDXCount = 0;
-    angleDYCount = 0;
-    
-    angleDXPosCount = 0;
-    angleDYNegCount = 0;
-    angleDXNegCount = 0;
-    angleDYPosCount = 0;
-    angleInsideCount = 0;
-    
-    angleNegDXSD = 0.0;
-    angleNegDYSD = 0.0;
-    anglePosDXSD = 0.0;
-    anglePosDYSD = 0.0;
-    
-    for (int i=-7; i != 8; i++)
-    {
-      for (int j =-7; j != 8; j++)
-      {
-        if(x+i < ang.width() &&
-           x+i >= 0 &&
-           y+j < ang.height() &&
-           y+j >= 0)
-        {
-          angleDYMem[7+i][7+j] = std::sin(ang(x+i,y+j));
-          angleDXMem[7+i][7+j] = std::cos(ang(x+i,y+j));
-          
-          angleDYMean += angleDYMem[7+i][7+j];
-          angleDXMean += angleDXMem[7+i][7+j];
-          
-          ++angleInsideCount;
-        }
-      }
-    }
-    
-    angleDYMean /= static_cast<double>(angleInsideCount) ;
-    angleDXMean /= static_cast<double>(angleInsideCount);
-    
-    for (int i=0; i != 14; i++)
-    {
-      for (int j =0; j != 14; j++)
-      {
-        angleDeviationDX = angleDXMean-angleDXMem[i][j];
-        angleDeviationDY = angleDYMean-angleDYMem[i][j];
-        if(angleDeviationDX <= 0.0)
-        {
-          angleNegDXSD -= angleDeviationDX;
-          ++angleDXNegCount;
-        }else{
-          anglePosDXSD += angleDeviationDX;
-          ++angleDXPosCount;
-        }
-        if(angleDeviationDY <= 0.0)
-        {
-          angleNegDYSD -= angleDeviationDY;
-          ++angleDYNegCount;
-        }else{
-          anglePosDYSD += angleDeviationDY;
-          ++angleDYPosCount;
-        }
-      }
-    }
-    
-    if(angleNegDXSD>anglePosDXSD)
-    {
-      angleDeviationDX = angleNegDXSD/static_cast<double>(angleDXNegCount);
-    }else{
-      angleDeviationDX = anglePosDXSD/static_cast<double>(angleDXPosCount);
-    }
-    if(angleNegDYSD>anglePosDYSD)
-    {
-      angleDeviationDY = angleNegDYSD/static_cast<double>(angleDYNegCount);
-    }else{
-      angleDeviationDY = anglePosDYSD/static_cast<double>(angleDYPosCount);
-    }
-    
-    for (int i=0; i != 14; i++)
-    {
-      for (int j =0; j != 14; j++)
-      {
-        angleDXTest = std::abs(angleDXMem[i][j]-angleDXMean);
-        angleDYTest = std::abs(angleDYMem[i][j]-angleDYMean);
-        
-        if(angleDXTest<=angleDeviationDX)
-        {
-          angleDXSum += angleDXMem[i][j];
-          ++angleDXCount;
-        }
-        if(angleDYTest<=angleDeviationDY)
-        {
-          angleDYSum += angleDYMem[i][j];
-          ++angleDYCount;
-        }
-      }
-    }
-    angleVal = atan2(angleDYSum/angleDYCount,
-                     angleDXSum/angleDXCount);
-    angles.push_back(std::atan(angleVal));
-    x = x+dx[*it];
-    y = y+dy[*it];
-  }
-  Rcpp::NumericVector anglevector = Rcpp::wrap(angles);
-  Rcpp::Rcout << "finalizing" << std::endl;
-  return anglevector;
-}
-
-

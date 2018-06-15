@@ -1,24 +1,60 @@
 
-# require("imager")
-# require("Rcpp")
-# require("mxnet")
 #cimg.use.openmp("never")
 
-###########################################################################################
-# find the most efficient path and extract angles from it
-#########################################################################################
 
-#moving sum
+#' @title msum 
+#' @description helper function for smoothing a sequence
+#' @param n width of kernel
+#' @param sides should the moving average be calculated in middle, or starting from one side
+#' @return smoothed sequence
 msum <- function(x,n=5,sides=1){filter(x,rep(1,min(n,length(x))), sides=sides)}
 
-filterFeatures <- function(pathMap,
-                           angleGrad,
-                           angleColor,
-                           startPoint,
-                           endPoint,
-                           prox,
-                           resizeRatio,
-                           cropStart)
+#' @title constrainSizeFinImage 
+#' @details Processes an image(cimg) containing a fin. 
+#' constrains image to a size range that balances preserving detail and efficiency
+#' @param fin Value of type cimg. Load the image via load.image("directory/finImage.JPG")
+#' @return Value of type list containing a scalar resize factor and a resized cimg
+#' @export
+constrainSizeFinImage <- function(fin)
+{
+  if(height(fin) > 2000)
+  {
+    print("Image too large... Resizing...")
+    resizeFactor <- 2000/height(fin)
+    
+    fin <- resize(fin, size_x = round(2000*(width(fin)/height(fin))), size_y = 2000, interpolation_type = 6)
+  }
+  else if(height(fin) < 750)
+  {
+    print("Image too small... Resizing...")
+    resizeFactor <- 750/height(fin)
+    
+    fin <- resize(fin, size_x = round(750*(width(fin)/height(fin))), size_y = 750, interpolation_type = 6)
+  }else{
+    resizeFactor <- 1
+  }
+  return(list(fin=fin,resizeFactor=resizeFactor))
+}
+
+
+###########################################################################################
+# find the best edge trace
+#########################################################################################
+
+#' @title traceFromCannyEdges 
+#' @details Isolates trailing edge of a fin given a canny edge image(cimg) and trace constraints.
+#' Starting with a weighted canny edge matrix and start/stop points, an optimal path traversal is found via
+#' \code{findPath}
+#' After some basic cleanup, the resulting pixel coordinates for the optimal edge trace are returned.
+#' @param pathMap matrix of type numeric. Used for weighted astar path finding
+#' @param startPoint vector of type numeric indicating the x and y position for initializing trace
+#' @param endPoint value of type numeric indicating the x and y position for terminating trace
+#' @param prox value of type numeric for setting degree of wiggle room for trace termination
+#' @return Value of type dataframe containing plotpath coordinates
+traceFromCannyEdges <- function(pathMap,
+                                startPoint,
+                                endPoint,
+                                prox)
 {
   if(!anyNA(c(startPoint,
               endPoint,
@@ -27,7 +63,6 @@ filterFeatures <- function(pathMap,
     radiusLimit <- sqrt(sum((startPoint-endPoint)^2))
     
     xrange <- range(c(startPoint[1],endPoint[1],which(rowSums(pathMap)>.25)))
-    
     yrange <- range(c(startPoint[2],endPoint[2],which(colSums(pathMap)>.25)))
     
     path <- findPath(pathMap,
@@ -40,16 +75,9 @@ filterFeatures <- function(pathMap,
                      minY=max(yrange[1]-1,1),
                      maxY=min(yrange[2]+1,ncol(pathMap)-1),
                      radiusLimit/prox)#proximity for completion
-    anglesByColor <- extractAngles(angleColor,
-                                   path,
-                                   startPoint[1],
-                                   startPoint[2])
-    anglesByGrad <- extractAngles(angleGrad,
-                                  path,
-                                  startPoint[1],
-                                  startPoint[2])
     
-    if(length(path)<100){return(list(NULL,NULL,NULL))}
+    
+    if(length(path)<100){return(list(NULL,NULL))}
     
     # this section transforms the path vector found by the findPath function into coordinates for r to plot
     stepX=c( 0, 1, 1, 1, 0, -1, -1, -1)
@@ -68,14 +96,10 @@ filterFeatures <- function(pathMap,
       Yposition <- Yposition+stepY[path[i]+1]
     }
     plotpath <- plotpath[pathLength:1,]
-    anglesByColor[is.na(anglesByColor)] <- pi/2
-    anglesByGrad[is.na(anglesByGrad)] <- pi/2
     
     #make sure we select tiptop
     tipValues <- head(sort(plotpath[,2],decreasing = F),5)
     tipIndex <- max(which(plotpath[,2] %in% tipValues ))
-    anglesByColor <- anglesByColor[tipIndex:nrow(plotpath)]
-    anglesByGrad <- anglesByGrad[tipIndex:nrow(plotpath)]
     plotpath <- plotpath[tipIndex:nrow(plotpath),]
     
     #remove top sprew
@@ -92,22 +116,11 @@ filterFeatures <- function(pathMap,
     sprew[is.na(sprew)] <- 0
     endCut <- max(which(msum(n=20,sprew)/20 > 0),na.rm = T)
     
-    # plotpath <- round(approx(plotpath[startCut:endCut,],
-    #                          n=round(diff(c(startCut,endCut))/resizeRatio ))$y)
     plotpath <- plotpath[startCut:endCut,]
     
-    plotpath <- cbind(round(plotpath[,1]/resizeRatio+cropStart[1] ),
-                      round(plotpath[,2]/resizeRatio+cropStart[2]))
-    # plotpath <- cbind(round(approx(plotpath[,1]/resizeRatio,n=ceiling(pathLength/resizeRatio ))$y+cropStart[1] ),
-    #                   round(approx(plotpath[,2]/resizeRatio,n=ceiling(pathLength/resizeRatio ))$y+cropStart[2]))
-    anglesByColor <- anglesByColor[startCut:endCut]
-    anglesByGrad <- anglesByGrad[startCut:endCut]
-    
-    
-    #plot(anglesByGrad,pch=".",col="red");lines(anglesByColor,col="blue");lines(anglesByGrad,col="green")
-    return(list(anglesByGrad,anglesByColor,plotpath))
+    return(plotpath)
   }else{
-    return(list(NULL,NULL,NULL))
+    return(NULL)
   }
 }
 
@@ -116,24 +129,37 @@ filterFeatures <- function(pathMap,
 # Isolate and extract features for recognition
 ########################################################################################
 
+#' @title traceFromImage 
+#' @details Processes an image(cimg) containing a fin. 
+#' First the image undergoes cleanup through a variety of filters and glare removal via
+#' \code{constrainSizeFinImage} and \code{fillGlare}
+#' These processes help enhance edge clarity.
+#' The trailing edge is highlighted via neural network. 
+#' The image is then cropped down to the trailing edge for efficiency purposes.
+#' The canny edges are then extracted from the crop and passed to 
+#' \code{traceFromCannyEdges}
+#' which isolates coordinates for the trailing edge. These coordinates are then passed to
+#' \code{extractAnnulus}
+#' which collects image data used for identification.
+#' Both the coordinates and the image annulus are then returned.
 #' @param fin Value of type cimg. Load the image via load.image("directory/finImage.JPG")
 #' @param startStopCoords list of 3 coordinates: leadingEnd, startPoint, trailingEnd. If NULL, these points are estimated
 #' @param pathNet mxnet model for isolating trailing edge
-#' @return Value of type List containing vector of radians and dataframe of plotpath coordinates
+#' @return Value of type list containing  a dataframe of coordinates and a cimg of simplified features
 #' @export
-isolateCurve <- function(fin,
-                         startStopCoords = NULL,
-                         pathNet = NULL)
+traceFromImage <- function(fin,
+                           startStopCoords = NULL,
+                           pathNet = NULL)
 {
-  if(!is.cimg(fin)){stop("fin must be of type cimg")}
+  if(!is.cimg(fin)){stop("fin must be Jpeg of type cimg")}
   if(!("MXFeedForwardModel" %in% class(pathNet))){stop("network must be of class MXFeedForwardModel")}
   
   if(max(fin)>1){fin <- fin/255}
-  #finOG <- fin
+  finOG <- fin
   
   #### --- Highlight Trailing Edge --- ####
   
-  netIn <- resize(fin,size_x = 60,size_y = 48,interpolation_type = 2)
+  netIn <- resize(fin,size_x = 100,size_y = 80,interpolation_type = 2)
   estHighlight <- threshold(netIn,.97)
   
   cropRot <- dilate_square((netIn==0.0),5) | dilate_square((netIn==1.0),3)
@@ -150,18 +176,18 @@ isolateCurve <- function(fin,
   netIn <- as.array(netIn)
   
   #plot(as.cimg(netIn))
-  netOutResizeFactors <- c(dim(fin)[1]/60,dim(fin)[2]/48)
-  netIn <- append(netIn,netIn[60:1,,,])
+  netOutResizeFactors <- c(dim(fin)[1]/100,dim(fin)[2]/80)
+  netIn <- append(netIn,netIn[100:1,,,])
   
-  dim(netIn) <- c(60,48,3,2)
+  dim(netIn) <- c(100,80,3,2)
   
   netOut <- mxnet:::predict.MXFeedForwardModel(X=netIn,model=pathNet,ctx=mxnet::mx.cpu(),array.layout = "colmajor")
-  dim(netOut) <- c(60,48,2)
-  netOut <- parmax(list(as.cimg(netOut[,,1]),as.cimg(netOut[60:1,,2])))
+  dim(netOut) <- c(100,80,2)
+  netOut <- parmax(list(as.cimg(netOut[,,1]),as.cimg(netOut[100:1,,2])))
   
   # --- if no fin found
   #plot(netOut>.5)
-  if(!any(netOut>=.4)){print("No fin found");return(list(NULL,NULL,NULL))}
+  if(!any(netOut>=.4)){print("No fin found");return(list(NULL,NULL))}
   
   netblb <- label(netOut>.4,high_connectivity = TRUE)
   counts <- table(netblb)
@@ -183,9 +209,6 @@ isolateCurve <- function(fin,
   resizeSpanX <- netOutResizeFactors[1]*xSpan
   resizeSpanY <- netOutResizeFactors[2]*ySpan
   
-  # startPoint <- (startStopCoords[[1]]*resizeFactor)-(cumuResize*c(xSpan[1],ySpan[1]))
-  # endPoint <- (startStopCoords[[2]]*resizeFactor)-(cumuResize*c(xSpan[1],ySpan[1]))
-  
   if(!is.null(startStopCoords))
   {
     resizeSpanX <- c(min(startStopCoords[[1]][1]-1,startStopCoords[[2]][1]-1,floor(resizeSpanX[1])),
@@ -196,23 +219,10 @@ isolateCurve <- function(fin,
   fin <- suppressWarnings(as.cimg(fin[ floor(resizeSpanX[1]):ceiling(resizeSpanX[2]) ,
                                        floor(resizeSpanY[1]):ceiling(resizeSpanY[2]),,]))
   
-  if(height(fin) > 2000)
-  {
-    print("Image too large... Resizing...")
-    resizeFactor <- 2000/height(fin)
-    
-    fin <- resize(fin, size_x = round(2000*(width(fin)/height(fin))), size_y = 2000, interpolation_type = 6)
-  }
-  else if(height(fin) < 750)
-  {
-    print("Image too small... Resizing...")
-    resizeFactor <- 750/height(fin)
-    
-    fin <- resize(fin, size_x = round(750*(width(fin)/height(fin))), size_y = 750, interpolation_type = 5)
-  }else{
-    resizeFactor <- 1
-  }
-
+  resizedFin <- constrainSizeFinImage(fin)
+  resizeFactor <- resizedFin$resizeFactor
+  fin <- resizedFin$fin
+  
   cumuResize <- (netOutResizeFactors*resizeFactor)
   
   edgeFilter <- resize( netOut ,size_x = width(fin) , size_y = height(fin),interpolation_type = 3)/max(netOut)
@@ -292,12 +302,6 @@ isolateCurve <- function(fin,
   estForgoundBackgroundSplit <- as.logical(estimatedSilhouette>estMiddle)
   upperExtractedSilhouetteSD <- sd(estimatedSilhouette[estForgoundBackgroundSplit])
   lowerExtractedSilhouetteSD <- sd(estimatedSilhouette[!estForgoundBackgroundSplit])
-  
-  # SilhouetteFactor <- min( upperExtractedSilhouetteSD,lowerExtractedSilhouetteSD )
-  # extractedSilhouette <- isoblur(extractedSilhouette,ceiling(yRange/500))
-  # extractedSilhouette <- medianblur(extractedSilhouette,ceiling(yRange/50),SilhouetteFactor)
-  
-  
   
   # now we find out if the brightness distribution is bimodal
   bimodExtractedSilhouette <- sum(estimatedSilhouette > estMiddle-lowerExtractedSilhouetteSD & 
@@ -452,10 +456,8 @@ isolateCurve <- function(fin,
     if(anyNA(startPoint) || anyNA(endPoint) || any(c(startPoint,endPoint)==0))
     {
       print(paste0("from: ",startPoint[1],",",startPoint[2]," -- to: ",endPoint[1],",",endPoint[2] ))
-      return(list(NULL,NULL,NULL))
+      return(list(NULL,NULL))
     }
-    
-    #plot(rawEdges);points(t(startPoint),col="green");points(t(endPoint),col="red")
     
     endProxRatio <- 10
   }else{
@@ -477,28 +479,20 @@ isolateCurve <- function(fin,
   print(startPoint)
   pathMap <- minimalEdge*edgeFilter*sorbel
   
-  # resizeSpanX <- netOutResizeFactors[1]*xSpan
-  # resizeSpanY <- netOutResizeFactors[2]*ySpan
-  
-  #affineFactor <- netOutResizeFactors*c(xSpan[1],ySpan[1])
   affineFactor <- c(resizeSpanX[1],resizeSpanY[1])
   
-  trailingFeatues <- filterFeatures(as.matrix(parmax(list(pathMap/max(pathMap),as.cimg(pathMap>(mean(pathMap[pathMap>0.0])/2.0) ))) ), #as.matrix(pathMap+pathMap>mean(pathMap[pathMap>0]) ),
-                                    angleGrad,
-                                    angleColor,
+  pathDF <- traceFromCannyEdges(as.matrix(parmax(list(pathMap/max(pathMap),as.cimg(pathMap>(mean(pathMap[pathMap>0.0])/2.0) ))) ), #as.matrix(pathMap+pathMap>mean(pathMap[pathMap>0]) ),
                                     round(startPoint),
                                     round(endPoint),
-                                    endProxRatio,
-                                    resizeFactor,
-                                    affineFactor)
-  print("Trace Complete")
-  # plot(rawEdges);points(t(startPoint),col="green");points(t(endPoint),col="red")
-  # trail <- cbind(
-  #   round((trailingFeatues[[3]][,1]*(resizeFactor)) -restoreSizer[1]),
-  #   round((trailingFeatues[[3]][,2]*(resizeFactor)) -restoreSizer[2])
-  # )
-  # points(trail,col="yellow",pch=".")
-  #plot(grayscale(finOG));points(trailingFeatues[[3]],col="red",pch=".")
+                                    endProxRatio)
   
-  return(list(trailingFeatues))
+  
+  annulus <- extractAnnulus(fin,pathDF[,1],pathDF[,2])
+  
+  plotpath <- cbind(round(pathDF[,1]/resizeFactor+affineFactor[1] ),
+                    round(pathDF[,2]/resizeFactor+affineFactor[2]))
+  
+  traceData <- list(annulus,plotpath)
+  names(traceData) <- c("annulus","coordinates")
+  return(traceData)
 }
