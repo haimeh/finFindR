@@ -9,22 +9,22 @@ Download link:
 https://github.com/haimeh/finFindR/releases
 
 Raw images collected in the field are prepped for cataloging in two steps.
-A neural network isolates fins from the image and selects a region that surrounds each contiguous region of activation \n
+A neural network isolates fins from the image and selects a region that surrounds each contiguous region of activation <br />
 ![alt text](inst/procImg/rawField.PNG)
-![alt text](inst/procImg/finHighlighted.PNG) \n
-Each selection is then cropped and saved \n
-![alt text](inst/procImg/crop.PNG) \n \n
+![alt text](inst/procImg/finHighlighted.PNG) <br />
+Each selection is then cropped and saved <br />
+![alt text](inst/procImg/crop.PNG) <br /><br />
 
-Once the image is cropped it is prepared for matching by further cropping the image to isolate the trailing edge. \n
-The matching process begins with an edge tracing algorithm programmed in finFindR which, \n \n
+Once the image is cropped it is prepared for matching by further cropping the image to isolate the trailing edge. <br />
+The matching process begins with an edge tracing algorithm programmed in finFindR which, <br /><br />
 
-from the crop, the enhanced canny-edges(white) are calculated and the optimal-trace(red) is extracted. \n
-![alt text](inst/procImg/cannyEnhanced.PNG)
+from the crop, the enhanced canny-edges(white) are calculated and the optimal-trace(red) is extracted. <br />
+![alt text](inst/procImg/cannyEnhanced.PNG)<br /><br />
 
 This optimal path is used as a guide to extract the input for the neural network.
 The input takes the form of 200 samples from along the optimal path.
-Each sample consists of a ring around the sample position where the ring is composed of 16 subsamples of the image values. \n
-![alt text](inst/procImg/chromaTrace.PNG) \n
+Each sample consists of a ring around the sample position where the ring is composed of 16 subsamples of the image values. <br />
+![alt text](inst/procImg/chromaTrace.PNG) <br />
 These measurements quantify overall shape and details such as knicks. The matching algorithm consisted of a deep convolutional neural network
 based on the ResNet architecture, which generated a large-margin nearest neighbor metric. The
 network was trained using a k-neighbors soft-triplet loss objective.
