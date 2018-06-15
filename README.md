@@ -10,7 +10,7 @@ https://github.com/haimeh/finFindR/releases
 
 Raw images collected in the field are prepped for cataloging in two steps.
 A neural network isolates fins from the image and selects a region that surrounds each contiguous region of activation <br />
-![alt text](inst/procImg/rawField.PNG)
+![alt text](inst/procImg/rawFieldFin.PNG)
 ![alt text](inst/procImg/finHighlighted.PNG) <br />
 Each selection is then cropped and saved <br />
 ![alt text](inst/procImg/crop.PNG) <br /><br />
