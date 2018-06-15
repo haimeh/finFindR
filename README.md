@@ -10,21 +10,21 @@ https://github.com/haimeh/finFindR/releases
 
 Raw images collected in the field are prepped for cataloging in two steps.
 A neural network isolates fins from the image and selects a region that surrounds each contiguous region of activation
-![alt text](https://github.com/haimeh/finFindR/tree/master/inst/extdata/rawField.png)
-![alt text](https://github.com/haimeh/finFindR/tree/master/inst/extdata/finHighlighted.png)
+![alt text](https://github.com/haimeh/finFindR/tree/master/inst/procImg/rawField.png)
+![alt text](https://github.com/haimeh/finFindR/tree/master/inst/procImg/finHighlighted.png)
 Each selection is then cropped and saved
-![alt text](https://github.com/haimeh/finFindR/tree/master/inst/extdata/crop.PNG)
+![alt text](https://github.com/haimeh/finFindR/tree/master/inst/procImg/crop.PNG)
 
 Once the image is cropped it is prepared for matching by further cropping the image to isolate the trailing edge.
 The matching process begins with an edge tracing algorithm programmed in finFindR which,
 
 from the crop, the enhanced canny-edges(white) are calculated and the optimal-trace(red) is extracted.
-![alt text](https://github.com/haimeh/finFindR/tree/master/inst/extdata/cannyEnhanced.PNG)
+![alt text](https://github.com/haimeh/finFindR/tree/master/inst/procImg/cannyEnhanced.PNG)
 
 This optimal path is used as a guide to extract the input for the neural network.
 The input takes the form of 200 samples from along the optimal path.
 Each sample consists of a ring around the sample position where the ring is composed of 16 subsamples of the image values.
-![alt text](https://github.com/haimeh/finFindR/tree/master/inst/extdata/chromaTrace.PNG)
+![alt text](https://github.com/haimeh/finFindR/tree/master/inst/procImg/chromaTrace.PNG)
 These measurements quantify overall shape and details such as knicks. The matching algorithm consisted of a deep convolutional neural network
 based on the ResNet architecture, which generated a large-margin nearest neighbor metric. The
 network was trained using a k-neighbors soft-triplet loss objective.
