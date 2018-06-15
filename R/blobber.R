@@ -25,6 +25,7 @@ cropFins <- function(imageName,cropNet,workingImage,saveDir,minXY=100,threshold=
                                                model=cropNet,
                                                ctx=mxnet::mx.cpu(),
                                                array.layout = "colmajor")
+  
   blobs <- erode_square(label(dilate_square(isoblur(netOut,.5) > threshold,3),high_connectivity=F),3) 
   edges <- netOut>(threshold+.25)
   

@@ -25,7 +25,9 @@ This optimal path is used as a guide to extract the input for the neural network
 The input takes the form of 200 samples from along the optimal path.
 Each sample consists of a ring around the sample position where the ring is composed of 16 subsamples of the image values. <br />
 ![alt text](inst/procImg/chromaTrace.PNG) <br />
-These measurements quantify overall shape and details such as knicks. The matching algorithm consisted of a deep convolutional neural network
+These measurements quantify overall shape and details such as knicks.<br /><br />
+
+The matching algorithm consisted of a deep convolutional neural network
 based on the ResNet architecture, which generated a large-margin nearest neighbor metric. The
 network was trained using a k-neighbors soft-triplet loss objective.
 The neural network defines a mapping from the raw input data to an embedding where
