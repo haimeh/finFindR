@@ -542,7 +542,7 @@ function(input, output, session) {
     plotsPanel[["TableQuery"]]$mode="default"
   })
   
-  # --- relable Rdata
+  # --- relable Rdata via finBase csv
   observeEvent(input$labelWithCSV,{
     if(!is.null(input$csvLabeler))
     {
@@ -562,8 +562,8 @@ function(input, output, session) {
         sessionQuery$idData <- as.integer(unlist(correction['CatalogID']))
         names(sessionQuery$idData) <- as.character(unlist(correction['Image']))
         
-        sessionQuery$hashData <- hashData[names(sessionQuery$idData)]
-        sessionQuery$traceData <- traceData[names(sessionQuery$idData)]
+        sessionQuery$hashData <- sessionQuery$hashData[names(sessionQuery$idData)]
+        sessionQuery$traceData <- sessionQuery$traceData[names(sessionQuery$idData)]
 
         rankTable$editCount <- rankTable$editCount+1
       }else{
