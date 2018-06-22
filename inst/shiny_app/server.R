@@ -560,7 +560,7 @@ function(input, output, session) {
         }
         
         sessionQuery$idData <- as.integer(unlist(correction['CatalogID']))
-        sessionQuery$names(idData) <- as.character(unlist(correction['Image']))
+        names(sessionQuery$idData) <- as.character(unlist(correction['Image']))
         
         sessionQuery$hashData <- hashData[names(sessionQuery$idData)]
         sessionQuery$traceData <- traceData[names(sessionQuery$idData)]

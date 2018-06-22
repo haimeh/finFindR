@@ -9,15 +9,14 @@ Download link:
 https://github.com/haimeh/finFindR/releases
 
 Raw images collected in the field are prepped for cataloging in two steps.
-A neural network isolates fins from the image and selects a region that surrounds each contiguous region of activation <br />
+A neural network isolates fins from the image and selects a buffered region that surrounds each contiguous region of activation <br />
 ![alt text](inst/procImg/rawFieldFin.PNG)
 ![alt text](inst/procImg/finHighlighted.PNG) <br />
 Each selection is then cropped and saved <br />
 ![alt text](inst/procImg/crop.PNG) <br /><br />
 
 Once the image is cropped it is prepared for matching by further cropping the image to isolate the trailing edge. <br />
-The matching process begins with an edge tracing algorithm programmed in finFindR which, <br /><br />
-
+The matching process begins with an edge tracing algorithm programmed in finFindR which, 
 from the crop, the enhanced canny-edges(white) are calculated and the optimal-trace(red) is extracted. <br />
 ![alt text](inst/procImg/cannyEnhanced.PNG)<br /><br />
 
