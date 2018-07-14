@@ -184,7 +184,7 @@ Only images loaded in from the Query directory can be modified.<br />
 From either the Cluster or Matches tabs, a window showing a Query individual will have the following in its header:<br />
 ![alt text](inst/procImg/imagePanel.PNG) <br />
 The upper most box simply shows the name of the image.<br />
-Below that is the ID assigned to the individual. This can be modified by clicking the __Change__ button. Once clicked, the ID can be modified:
+Below that is the ID assigned to the individual. This can be modified by clicking the __Change__ button. Once clicked, the ID can be modified: <br />
 ![alt text](inst/procImg/changeID.PNG) <br />
 You can type in the new ID and click __Set__ to assign it or leave it blank and click __Set__ to leave the ID unchanged.<br />
 The __Trace__ checkbox shows or hides the region of interest the network is using to identify the fin.<br />
