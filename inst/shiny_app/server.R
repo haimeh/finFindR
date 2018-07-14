@@ -14,8 +14,8 @@ plotLim <- 4
 networks <- system.file("extdata", package="finFindR")
 
 pathNet <- mxnet::mx.model.load(file.path(networks,'tracePath_256'), 60)
-mxnetModel <- mxnet::mx.model.load(file.path(networks,'fin_triplet_4096_out'), 2800)
-cropNet <- mxnet::mx.model.load(file.path(networks,'finLocate_256'), 200)
+mxnetModel <- mxnet::mx.model.load(file.path(networks,'fin_triplet32_4096_out'), 2400)
+cropNet <- mxnet::mx.model.load(file.path(networks,'cropperInit'), 940)
 
 
 # --- Helper functions -----------------------------------------------------------------------------------------
@@ -112,13 +112,10 @@ finIter <- setRefClass("finIter",
                          
                          value=function(){
                            val.x <- as.array(.self$iter$value()$data)
-                           
                            val.x[is.na(val.x) | is.nan(val.x) | is.infinite(val.x)]<-(.5)
-  
                            dim(val.x) <- c(data.shape,16,3,ncol(val.x))
-                           val.x <- mx.nd.array(val.x)
                            
-                           list(data=val.x)
+                           list(data=mx.nd.array(val.x))
                          },
                          
                          iter.next=function(){
@@ -138,9 +135,9 @@ finIter <- setRefClass("finIter",
 
 traceToHash <- function(traceData)
 {
-  iterInputFormat <- sapply(traceData,function(x){as.array(resize(x,size_x = 200,interpolation_type = 5))})
+  iterInputFormat <- sapply(traceData,function(x){as.numeric(resize(x,size_x = 300,interpolation_type = 6))})
   dataIter <- finIter$new(data = iterInputFormat,
-                          data.shape = 200)
+                          data.shape = 300)
   print("embed")
   netEmbedding <- mxnet:::predict.MXFeedForwardModel(mxnetModel,
                                                      dataIter,
@@ -148,7 +145,7 @@ traceToHash <- function(traceData)
                                                      ctx= mx.cpu(),
                                                      allow.extra.params=T)
   rm(dataIter)
-  
+  gc()
   #dim(netEmbedding) <- c(32,length(traceData),2)
   #netEmbedding <- apply(netEmbedding, 1:2, mean)
   
@@ -166,6 +163,8 @@ cropDirectory <- function(searchDirectory,
                           cropNet,
                           workingImage,
                           minXY=200,
+                          sensitivity,
+                          labelTarget,
                           includeSubDir=T,
                           mimicDirStructure=T)
 {
@@ -210,7 +209,13 @@ cropDirectory <- function(searchDirectory,
                    print("==== + ====")
                    print(basename(imgName))
                    #print(file.path(sub('/$','',saveDirectory),sub('^/','',newDirStruct)))
-                   try(cropFins(imgName,cropNet,workingImage, file.path(sub('/$','',saveDirectory),sub('^/','',newDirStruct)),minXY ))
+                   try(cropFins(imageName=imgName,
+                                cropNet=cropNet,
+                                workingImage=workingImage,
+                                saveDir=file.path(sub('/$','',saveDirectory),sub('^/','',newDirStruct)),
+                                minXY=minXY,
+                                target=labelTarget,
+                                threshold=1-sensitivity))
                    incProgress(1/sum(index), detail = paste(basename(imgName)," -- ",progressTicker,"of",sum(index)))
                    
                  }
@@ -1506,11 +1511,18 @@ function(input, output, session) {
     cropPath <- normalizePath(input$queryDirectory,"/")
     dir.create(file.path(paste0(cropPath,"_finFindR-Crops")), showWarnings = FALSE)
     print(cropPath)
+    
+    labelValue = switch(input$cropTarget,
+           "Body&Fin"=c(1,2),
+           "Fin"=2)
+    
     cropDirectory(searchDirectory=cropPath,
                   saveDirectory=paste0(cropPath,"_finFindR-Crops"),
                   cropNet,
                   workingImage,
                   minXY=100,
+                  sensitivity=input$Sensitivity,
+                  labelTarget=labelValue,
                   includeSubDir=T,
                   mimicDirStructure=T)
   })

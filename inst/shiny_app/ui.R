@@ -44,10 +44,24 @@ fluidPage(
         ),
         conditionalPanel(
           condition = "input.inputType == 'Field'",
-          actionButton(
-            inputId = "cropRawImages",
-            label = "Crop"
+          fluidRow(
+            column(width=3,h1(" "),#just for space,
+                   actionButton(
+              inputId = "cropRawImages",
+              label = "Crop"
+            )),
+            column(width=9,sliderInput("Sensitivity",
+                        "Threshold:",
+                        min = .1,  max = .9, value = .4))
+          ),
+          radioButtons(
+            inputId = "cropTarget",
+            label = "Crop Type",
+            choices = c("Body&Fin","Fin"),
+            inline = T
           )
+          
+          
         ),
         conditionalPanel(
           condition = "input.inputType == 'Label'",

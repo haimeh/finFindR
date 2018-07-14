@@ -233,6 +233,7 @@ traceFromImage <- function(fin,
   }else{
     yRange <- round(diff(range(which((colSums(netOut>.5)>0))))*cumuResize[2] )
   }
+  cannyFilter <- isoblur(resize( netOut-.25 ,size_x = width(fin) , size_y = height(fin),interpolation_type = 6),yRange/1000)/max(netOut)
   
   
   
@@ -362,7 +363,8 @@ traceFromImage <- function(fin,
     
     sorbel <- average(list(sorbel/qSorbel,extractedSorbel/qExtractedSorbel))
   }
-  
+  sorbelOri <- sorbel
+  sorbel <- (1/(1+exp(-10*(cannyFilter) )))*sorbel
   angle <- atan(dy/dx)
 
   
@@ -430,10 +432,11 @@ traceFromImage <- function(fin,
     
     constrainedHighlight <- edgeFilter*(netBlob==targetBlob)
     constrainedHighlight <- constrainedHighlight/max(constrainedHighlight)
-    startHighlight <- as.array(constrainedHighlight * (sorbel*minimalEdge) )#dilate_square(sorbel*minimalEdge,3))
+    startHighlight <- as.array(constrainedHighlight * (sorbelOri*minimalEdge) )#dilate_square(sorbel*minimalEdge,3))
     
     thresh <- colSums(startHighlight)
-    thresh <- mean(thresh[thresh>0])/3
+    thresh <- thresh[thresh>0]
+    thresh <- quantile(thresh,.05)#mean(thresh)/3
     
     startY <- min(which(colSums(startHighlight) > thresh))
     startOptions <- startHighlight[,startY,,]
@@ -477,20 +480,29 @@ traceFromImage <- function(fin,
   
   print("Creating Trailing Edge Path...")
   print(startPoint)
-  pathMap <- minimalEdge*edgeFilter*sorbel
+  # pathMap <- minimalEdge*edgeFilter*sorbel
+  pathMap <- minimalEdge*sorbel
   
   affineFactor <- c(resizeSpanX[1],resizeSpanY[1])
   
-  pathDF <- traceFromCannyEdges(as.matrix(parmax(list(pathMap/max(pathMap),as.cimg(pathMap>(mean(pathMap[pathMap>0.0])/2.0) ))) ), #as.matrix(pathMap+pathMap>mean(pathMap[pathMap>0]) ),
-                                    round(startPoint),
-                                    round(endPoint),
-                                    endProxRatio)
-  
+  # pathDF <- traceFromCannyEdges(as.matrix(parmax(list(pathMap/max(pathMap),as.cimg(pathMap>(mean(pathMap[pathMap>0.0])/2.0) ))) ), #as.matrix(pathMap+pathMap>mean(pathMap[pathMap>0]) ),
+  #                                   round(startPoint),
+  #                                   round(endPoint),
+  #                                   endProxRatio)
+  pathDF <- traceFromCannyEdges(as.matrix((pathMap/(1.6*median(pathMap[pathMap>0])))), #as.matrix(pathMap+pathMap>mean(pathMap[pathMap>0]) ),
+                                round(startPoint),
+                                round(endPoint),
+                                endProxRatio)
   
   annulus <- extractAnnulus(fin,pathDF[,1],pathDF[,2])
+
   
+  pathMap <<- pathMap
+  plot(pathMap)
   plotpath <- cbind(round(pathDF[,1]/resizeFactor+affineFactor[1] ),
                     round(pathDF[,2]/resizeFactor+affineFactor[2]))
+  par(new=TRUE)
+  points(pathDF[,1],pathDF[,2],pch=".",col='red', ann=FALSE, asp = 0)
   
   traceData <- list(annulus,plotpath)
   names(traceData) <- c("annulus","coordinates")

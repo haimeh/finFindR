@@ -11,7 +11,7 @@
       "attrs": {
         "kernel": "(7, 7)", 
         "no_bias": "0", 
-        "num_filter": "16", 
+        "num_filter": "21", 
         "pad": "(3, 3)", 
         "stride": "(1, 1)"
       }, 
@@ -23,7 +23,7 @@
       "attrs": {
         "kernel": "(7, 7)", 
         "no_bias": "0", 
-        "num_filter": "16", 
+        "num_filter": "21", 
         "pad": "(3, 3)", 
         "stride": "(1, 1)"
       }, 
@@ -35,7 +35,7 @@
       "attrs": {
         "kernel": "(7, 7)", 
         "no_bias": "0", 
-        "num_filter": "16", 
+        "num_filter": "21", 
         "pad": "(3, 3)", 
         "stride": "(1, 1)"
       }, 
@@ -43,17 +43,20 @@
     }, 
     {
       "op": "LeakyReLU", 
-      "name": "leakyrelu18", 
-      "attrs": {"act_type": "elu"}, 
+      "name": "leakyrelu11", 
+      "attrs": {
+        "act_type": "elu", 
+        "slope": "1"
+      }, 
       "inputs": [[3, 0, 0]]
     }, 
     {
       "op": "null", 
-      "name": "convolution22_weight", 
+      "name": "convolution13_weight", 
       "attrs": {
         "kernel": "(3, 3)", 
         "no_bias": "1", 
-        "num_filter": "16", 
+        "num_filter": "21", 
         "pad": "(1, 1)", 
         "stride": "(1, 1)"
       }, 
@@ -61,11 +64,11 @@
     }, 
     {
       "op": "Convolution", 
-      "name": "convolution22", 
+      "name": "convolution13", 
       "attrs": {
         "kernel": "(3, 3)", 
         "no_bias": "1", 
-        "num_filter": "16", 
+        "num_filter": "21", 
         "pad": "(1, 1)", 
         "stride": "(1, 1)"
       }, 
@@ -73,13 +76,16 @@
     }, 
     {
       "op": "LeakyReLU", 
-      "name": "leakyrelu19", 
-      "attrs": {"act_type": "elu"}, 
+      "name": "leakyrelu12", 
+      "attrs": {
+        "act_type": "elu", 
+        "slope": "1"
+      }, 
       "inputs": [[6, 0, 0]]
     }, 
     {
       "op": "null", 
-      "name": "batchnorm10_gamma", 
+      "name": "batchnorm5_gamma", 
       "attrs": {
         "eps": "2e-005", 
         "fix_gamma": "0", 
@@ -89,7 +95,7 @@
     }, 
     {
       "op": "null", 
-      "name": "batchnorm10_beta", 
+      "name": "batchnorm5_beta", 
       "attrs": {
         "eps": "2e-005", 
         "fix_gamma": "0", 
@@ -99,7 +105,7 @@
     }, 
     {
       "op": "null", 
-      "name": "batchnorm10_moving_mean", 
+      "name": "batchnorm5_moving_mean", 
       "attrs": {
         "__init__": "[\"zero\", {}]", 
         "eps": "2e-005", 
@@ -110,7 +116,7 @@
     }, 
     {
       "op": "null", 
-      "name": "batchnorm10_moving_var", 
+      "name": "batchnorm5_moving_var", 
       "attrs": {
         "__init__": "[\"one\", {}]", 
         "eps": "2e-005", 
@@ -121,7 +127,7 @@
     }, 
     {
       "op": "BatchNorm", 
-      "name": "batchnorm10", 
+      "name": "batchnorm5", 
       "attrs": {
         "eps": "2e-005", 
         "fix_gamma": "0", 
@@ -135,7 +141,7 @@
       "attrs": {
         "kernel": "(1, 1)", 
         "no_bias": "1", 
-        "num_filter": "32", 
+        "num_filter": "42", 
         "pad": "(0, 0)", 
         "stride": "(1, 1)"
       }, 
@@ -147,7 +153,7 @@
       "attrs": {
         "kernel": "(1, 1)", 
         "no_bias": "1", 
-        "num_filter": "32", 
+        "num_filter": "42", 
         "pad": "(0, 0)", 
         "stride": "(1, 1)"
       }, 
@@ -155,19 +161,481 @@
     }, 
     {
       "op": "LeakyReLU", 
-      "name": "leakyrelu20", 
-      "attrs": {"act_type": "elu"}, 
+      "name": "leakyrelu13", 
+      "attrs": {
+        "act_type": "elu", 
+        "slope": "1"
+      }, 
       "inputs": [[14, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "convolution14_weight", 
+      "attrs": {
+        "dilate": "(1, 1)", 
+        "kernel": "(3, 3)", 
+        "no_bias": "1", 
+        "num_filter": "42", 
+        "pad": "(1, 1)", 
+        "stride": "(1, 1)"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "Convolution", 
+      "name": "convolution14", 
+      "attrs": {
+        "dilate": "(1, 1)", 
+        "kernel": "(3, 3)", 
+        "no_bias": "1", 
+        "num_filter": "42", 
+        "pad": "(1, 1)", 
+        "stride": "(1, 1)"
+      }, 
+      "inputs": [[15, 0, 0], [16, 0, 0]]
+    }, 
+    {
+      "op": "LeakyReLU", 
+      "name": "leakyrelu14", 
+      "attrs": {
+        "act_type": "elu", 
+        "slope": "1"
+      }, 
+      "inputs": [[17, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "convolution15_weight", 
+      "attrs": {
+        "dilate": "(1, 1)", 
+        "kernel": "(3, 3)", 
+        "no_bias": "1", 
+        "num_filter": "42", 
+        "pad": "(1, 1)", 
+        "stride": "(1, 1)"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "Convolution", 
+      "name": "convolution15", 
+      "attrs": {
+        "dilate": "(1, 1)", 
+        "kernel": "(3, 3)", 
+        "no_bias": "1", 
+        "num_filter": "42", 
+        "pad": "(1, 1)", 
+        "stride": "(1, 1)"
+      }, 
+      "inputs": [[18, 0, 0], [19, 0, 0]]
+    }, 
+    {
+      "op": "LeakyReLU", 
+      "name": "leakyrelu15", 
+      "attrs": {
+        "act_type": "elu", 
+        "slope": "1"
+      }, 
+      "inputs": [[20, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "convolution16_weight", 
+      "attrs": {
+        "dilate": "(1, 1)", 
+        "kernel": "(3, 3)", 
+        "no_bias": "1", 
+        "num_filter": "42", 
+        "pad": "(1, 1)", 
+        "stride": "(1, 1)"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "Convolution", 
+      "name": "convolution16", 
+      "attrs": {
+        "dilate": "(1, 1)", 
+        "kernel": "(3, 3)", 
+        "no_bias": "1", 
+        "num_filter": "42", 
+        "pad": "(1, 1)", 
+        "stride": "(1, 1)"
+      }, 
+      "inputs": [[21, 0, 0], [22, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "batchnorm6_gamma", 
+      "attrs": {
+        "eps": "2e-005", 
+        "fix_gamma": "0", 
+        "momentum": "0.9"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "batchnorm6_beta", 
+      "attrs": {
+        "eps": "2e-005", 
+        "fix_gamma": "0", 
+        "momentum": "0.9"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "batchnorm6_moving_mean", 
+      "attrs": {
+        "__init__": "[\"zero\", {}]", 
+        "eps": "2e-005", 
+        "fix_gamma": "0", 
+        "momentum": "0.9"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "batchnorm6_moving_var", 
+      "attrs": {
+        "__init__": "[\"one\", {}]", 
+        "eps": "2e-005", 
+        "fix_gamma": "0", 
+        "momentum": "0.9"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "BatchNorm", 
+      "name": "batchnorm6", 
+      "attrs": {
+        "eps": "2e-005", 
+        "fix_gamma": "0", 
+        "momentum": "0.9"
+      }, 
+      "inputs": [[23, 0, 0], [24, 0, 0], [25, 0, 0], [26, 0, 1], [27, 0, 1]]
+    }, 
+    {
+      "op": "elemwise_add", 
+      "name": "_plus4", 
+      "inputs": [[15, 0, 0], [28, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "convolution17_weight", 
+      "attrs": {
+        "dilate": "(2, 2)", 
+        "kernel": "(3, 3)", 
+        "no_bias": "1", 
+        "num_filter": "42", 
+        "pad": "(2, 2)", 
+        "stride": "(1, 1)"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "Convolution", 
+      "name": "convolution17", 
+      "attrs": {
+        "dilate": "(2, 2)", 
+        "kernel": "(3, 3)", 
+        "no_bias": "1", 
+        "num_filter": "42", 
+        "pad": "(2, 2)", 
+        "stride": "(1, 1)"
+      }, 
+      "inputs": [[29, 0, 0], [30, 0, 0]]
+    }, 
+    {
+      "op": "LeakyReLU", 
+      "name": "leakyrelu16", 
+      "attrs": {
+        "act_type": "elu", 
+        "slope": "1"
+      }, 
+      "inputs": [[31, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "convolution18_weight", 
+      "attrs": {
+        "dilate": "(2, 2)", 
+        "kernel": "(3, 3)", 
+        "no_bias": "1", 
+        "num_filter": "42", 
+        "pad": "(2, 2)", 
+        "stride": "(1, 1)"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "Convolution", 
+      "name": "convolution18", 
+      "attrs": {
+        "dilate": "(2, 2)", 
+        "kernel": "(3, 3)", 
+        "no_bias": "1", 
+        "num_filter": "42", 
+        "pad": "(2, 2)", 
+        "stride": "(1, 1)"
+      }, 
+      "inputs": [[32, 0, 0], [33, 0, 0]]
+    }, 
+    {
+      "op": "LeakyReLU", 
+      "name": "leakyrelu17", 
+      "attrs": {
+        "act_type": "elu", 
+        "slope": "1"
+      }, 
+      "inputs": [[34, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "convolution19_weight", 
+      "attrs": {
+        "dilate": "(1, 1)", 
+        "kernel": "(3, 3)", 
+        "no_bias": "1", 
+        "num_filter": "42", 
+        "pad": "(1, 1)", 
+        "stride": "(1, 1)"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "Convolution", 
+      "name": "convolution19", 
+      "attrs": {
+        "dilate": "(1, 1)", 
+        "kernel": "(3, 3)", 
+        "no_bias": "1", 
+        "num_filter": "42", 
+        "pad": "(1, 1)", 
+        "stride": "(1, 1)"
+      }, 
+      "inputs": [[35, 0, 0], [36, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "batchnorm7_gamma", 
+      "attrs": {
+        "eps": "2e-005", 
+        "fix_gamma": "0", 
+        "momentum": "0.9"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "batchnorm7_beta", 
+      "attrs": {
+        "eps": "2e-005", 
+        "fix_gamma": "0", 
+        "momentum": "0.9"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "batchnorm7_moving_mean", 
+      "attrs": {
+        "__init__": "[\"zero\", {}]", 
+        "eps": "2e-005", 
+        "fix_gamma": "0", 
+        "momentum": "0.9"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "batchnorm7_moving_var", 
+      "attrs": {
+        "__init__": "[\"one\", {}]", 
+        "eps": "2e-005", 
+        "fix_gamma": "0", 
+        "momentum": "0.9"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "BatchNorm", 
+      "name": "batchnorm7", 
+      "attrs": {
+        "eps": "2e-005", 
+        "fix_gamma": "0", 
+        "momentum": "0.9"
+      }, 
+      "inputs": [[37, 0, 0], [38, 0, 0], [39, 0, 0], [40, 0, 1], [41, 0, 1]]
+    }, 
+    {
+      "op": "elemwise_add", 
+      "name": "_plus5", 
+      "inputs": [[29, 0, 0], [42, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "convolution20_weight", 
+      "attrs": {
+        "dilate": "(4, 4)", 
+        "kernel": "(3, 3)", 
+        "no_bias": "1", 
+        "num_filter": "42", 
+        "pad": "(4, 4)", 
+        "stride": "(1, 1)"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "Convolution", 
+      "name": "convolution20", 
+      "attrs": {
+        "dilate": "(4, 4)", 
+        "kernel": "(3, 3)", 
+        "no_bias": "1", 
+        "num_filter": "42", 
+        "pad": "(4, 4)", 
+        "stride": "(1, 1)"
+      }, 
+      "inputs": [[43, 0, 0], [44, 0, 0]]
+    }, 
+    {
+      "op": "LeakyReLU", 
+      "name": "leakyrelu18", 
+      "attrs": {
+        "act_type": "elu", 
+        "slope": "1"
+      }, 
+      "inputs": [[45, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "convolution21_weight", 
+      "attrs": {
+        "dilate": "(4, 4)", 
+        "kernel": "(3, 3)", 
+        "no_bias": "1", 
+        "num_filter": "42", 
+        "pad": "(4, 4)", 
+        "stride": "(1, 1)"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "Convolution", 
+      "name": "convolution21", 
+      "attrs": {
+        "dilate": "(4, 4)", 
+        "kernel": "(3, 3)", 
+        "no_bias": "1", 
+        "num_filter": "42", 
+        "pad": "(4, 4)", 
+        "stride": "(1, 1)"
+      }, 
+      "inputs": [[46, 0, 0], [47, 0, 0]]
+    }, 
+    {
+      "op": "LeakyReLU", 
+      "name": "leakyrelu19", 
+      "attrs": {
+        "act_type": "elu", 
+        "slope": "1"
+      }, 
+      "inputs": [[48, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "convolution22_weight", 
+      "attrs": {
+        "dilate": "(1, 1)", 
+        "kernel": "(3, 3)", 
+        "no_bias": "1", 
+        "num_filter": "42", 
+        "pad": "(1, 1)", 
+        "stride": "(1, 1)"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "Convolution", 
+      "name": "convolution22", 
+      "attrs": {
+        "dilate": "(1, 1)", 
+        "kernel": "(3, 3)", 
+        "no_bias": "1", 
+        "num_filter": "42", 
+        "pad": "(1, 1)", 
+        "stride": "(1, 1)"
+      }, 
+      "inputs": [[49, 0, 0], [50, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "batchnorm8_gamma", 
+      "attrs": {
+        "eps": "2e-005", 
+        "fix_gamma": "0", 
+        "momentum": "0.9"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "batchnorm8_beta", 
+      "attrs": {
+        "eps": "2e-005", 
+        "fix_gamma": "0", 
+        "momentum": "0.9"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "batchnorm8_moving_mean", 
+      "attrs": {
+        "__init__": "[\"zero\", {}]", 
+        "eps": "2e-005", 
+        "fix_gamma": "0", 
+        "momentum": "0.9"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "batchnorm8_moving_var", 
+      "attrs": {
+        "__init__": "[\"one\", {}]", 
+        "eps": "2e-005", 
+        "fix_gamma": "0", 
+        "momentum": "0.9"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "BatchNorm", 
+      "name": "batchnorm8", 
+      "attrs": {
+        "eps": "2e-005", 
+        "fix_gamma": "0", 
+        "momentum": "0.9"
+      }, 
+      "inputs": [[51, 0, 0], [52, 0, 0], [53, 0, 0], [54, 0, 1], [55, 0, 1]]
+    }, 
+    {
+      "op": "elemwise_add", 
+      "name": "_plus6", 
+      "inputs": [[43, 0, 0], [56, 0, 0]]
     }, 
     {
       "op": "null", 
       "name": "convolution23_weight", 
       "attrs": {
-        "dilate": "(1, 1)", 
+        "dilate": "(8, 8)", 
         "kernel": "(3, 3)", 
         "no_bias": "1", 
-        "num_filter": "32", 
-        "pad": "(1, 1)", 
+        "num_filter": "42", 
+        "pad": "(8, 8)", 
         "stride": "(1, 1)"
       }, 
       "inputs": []
@@ -176,30 +644,33 @@
       "op": "Convolution", 
       "name": "convolution23", 
       "attrs": {
-        "dilate": "(1, 1)", 
+        "dilate": "(8, 8)", 
         "kernel": "(3, 3)", 
         "no_bias": "1", 
-        "num_filter": "32", 
-        "pad": "(1, 1)", 
+        "num_filter": "42", 
+        "pad": "(8, 8)", 
         "stride": "(1, 1)"
       }, 
-      "inputs": [[15, 0, 0], [16, 0, 0]]
+      "inputs": [[57, 0, 0], [58, 0, 0]]
     }, 
     {
       "op": "LeakyReLU", 
-      "name": "leakyrelu21", 
-      "attrs": {"act_type": "elu"}, 
-      "inputs": [[17, 0, 0]]
+      "name": "leakyrelu20", 
+      "attrs": {
+        "act_type": "elu", 
+        "slope": "1"
+      }, 
+      "inputs": [[59, 0, 0]]
     }, 
     {
       "op": "null", 
       "name": "convolution24_weight", 
       "attrs": {
-        "dilate": "(1, 1)", 
+        "dilate": "(8, 8)", 
         "kernel": "(3, 3)", 
         "no_bias": "1", 
-        "num_filter": "32", 
-        "pad": "(1, 1)", 
+        "num_filter": "42", 
+        "pad": "(8, 8)", 
         "stride": "(1, 1)"
       }, 
       "inputs": []
@@ -208,81 +679,33 @@
       "op": "Convolution", 
       "name": "convolution24", 
       "attrs": {
-        "dilate": "(1, 1)", 
+        "dilate": "(8, 8)", 
         "kernel": "(3, 3)", 
         "no_bias": "1", 
-        "num_filter": "32", 
-        "pad": "(1, 1)", 
+        "num_filter": "42", 
+        "pad": "(8, 8)", 
         "stride": "(1, 1)"
       }, 
-      "inputs": [[18, 0, 0], [19, 0, 0]]
+      "inputs": [[60, 0, 0], [61, 0, 0]]
     }, 
     {
-      "op": "null", 
-      "name": "batchnorm11_gamma", 
+      "op": "LeakyReLU", 
+      "name": "leakyrelu21", 
       "attrs": {
-        "eps": "2e-005", 
-        "fix_gamma": "0", 
-        "momentum": "0.9"
+        "act_type": "elu", 
+        "slope": "1"
       }, 
-      "inputs": []
-    }, 
-    {
-      "op": "null", 
-      "name": "batchnorm11_beta", 
-      "attrs": {
-        "eps": "2e-005", 
-        "fix_gamma": "0", 
-        "momentum": "0.9"
-      }, 
-      "inputs": []
-    }, 
-    {
-      "op": "null", 
-      "name": "batchnorm11_moving_mean", 
-      "attrs": {
-        "__init__": "[\"zero\", {}]", 
-        "eps": "2e-005", 
-        "fix_gamma": "0", 
-        "momentum": "0.9"
-      }, 
-      "inputs": []
-    }, 
-    {
-      "op": "null", 
-      "name": "batchnorm11_moving_var", 
-      "attrs": {
-        "__init__": "[\"one\", {}]", 
-        "eps": "2e-005", 
-        "fix_gamma": "0", 
-        "momentum": "0.9"
-      }, 
-      "inputs": []
-    }, 
-    {
-      "op": "BatchNorm", 
-      "name": "batchnorm11", 
-      "attrs": {
-        "eps": "2e-005", 
-        "fix_gamma": "0", 
-        "momentum": "0.9"
-      }, 
-      "inputs": [[20, 0, 0], [21, 0, 0], [22, 0, 0], [23, 0, 1], [24, 0, 1]]
-    }, 
-    {
-      "op": "elemwise_add", 
-      "name": "_plus8", 
-      "inputs": [[15, 0, 0], [25, 0, 0]]
+      "inputs": [[62, 0, 0]]
     }, 
     {
       "op": "null", 
       "name": "convolution25_weight", 
       "attrs": {
-        "dilate": "(2, 2)", 
+        "dilate": "(1, 1)", 
         "kernel": "(3, 3)", 
         "no_bias": "1", 
-        "num_filter": "32", 
-        "pad": "(2, 2)", 
+        "num_filter": "42", 
+        "pad": "(1, 1)", 
         "stride": "(1, 1)"
       }, 
       "inputs": []
@@ -291,50 +714,18 @@
       "op": "Convolution", 
       "name": "convolution25", 
       "attrs": {
-        "dilate": "(2, 2)", 
-        "kernel": "(3, 3)", 
-        "no_bias": "1", 
-        "num_filter": "32", 
-        "pad": "(2, 2)", 
-        "stride": "(1, 1)"
-      }, 
-      "inputs": [[26, 0, 0], [27, 0, 0]]
-    }, 
-    {
-      "op": "LeakyReLU", 
-      "name": "leakyrelu22", 
-      "attrs": {"act_type": "elu"}, 
-      "inputs": [[28, 0, 0]]
-    }, 
-    {
-      "op": "null", 
-      "name": "convolution26_weight", 
-      "attrs": {
         "dilate": "(1, 1)", 
         "kernel": "(3, 3)", 
         "no_bias": "1", 
-        "num_filter": "32", 
+        "num_filter": "42", 
         "pad": "(1, 1)", 
         "stride": "(1, 1)"
       }, 
-      "inputs": []
-    }, 
-    {
-      "op": "Convolution", 
-      "name": "convolution26", 
-      "attrs": {
-        "dilate": "(1, 1)", 
-        "kernel": "(3, 3)", 
-        "no_bias": "1", 
-        "num_filter": "32", 
-        "pad": "(1, 1)", 
-        "stride": "(1, 1)"
-      }, 
-      "inputs": [[29, 0, 0], [30, 0, 0]]
+      "inputs": [[63, 0, 0], [64, 0, 0]]
     }, 
     {
       "op": "null", 
-      "name": "batchnorm12_gamma", 
+      "name": "batchnorm9_gamma", 
       "attrs": {
         "eps": "2e-005", 
         "fix_gamma": "0", 
@@ -344,7 +735,7 @@
     }, 
     {
       "op": "null", 
-      "name": "batchnorm12_beta", 
+      "name": "batchnorm9_beta", 
       "attrs": {
         "eps": "2e-005", 
         "fix_gamma": "0", 
@@ -354,7 +745,7 @@
     }, 
     {
       "op": "null", 
-      "name": "batchnorm12_moving_mean", 
+      "name": "batchnorm9_moving_mean", 
       "attrs": {
         "__init__": "[\"zero\", {}]", 
         "eps": "2e-005", 
@@ -365,7 +756,7 @@
     }, 
     {
       "op": "null", 
-      "name": "batchnorm12_moving_var", 
+      "name": "batchnorm9_moving_var", 
       "attrs": {
         "__init__": "[\"one\", {}]", 
         "eps": "2e-005", 
@@ -376,322 +767,39 @@
     }, 
     {
       "op": "BatchNorm", 
-      "name": "batchnorm12", 
+      "name": "batchnorm9", 
       "attrs": {
         "eps": "2e-005", 
         "fix_gamma": "0", 
         "momentum": "0.9"
       }, 
-      "inputs": [[31, 0, 0], [32, 0, 0], [33, 0, 0], [34, 0, 1], [35, 0, 1]]
+      "inputs": [[65, 0, 0], [66, 0, 0], [67, 0, 0], [68, 0, 1], [69, 0, 1]]
     }, 
     {
       "op": "elemwise_add", 
-      "name": "_plus9", 
-      "inputs": [[26, 0, 0], [36, 0, 0]]
-    }, 
-    {
-      "op": "null", 
-      "name": "convolution27_weight", 
-      "attrs": {
-        "dilate": "(4, 4)", 
-        "kernel": "(3, 3)", 
-        "no_bias": "1", 
-        "num_filter": "32", 
-        "pad": "(4, 4)", 
-        "stride": "(1, 1)"
-      }, 
-      "inputs": []
-    }, 
-    {
-      "op": "Convolution", 
-      "name": "convolution27", 
-      "attrs": {
-        "dilate": "(4, 4)", 
-        "kernel": "(3, 3)", 
-        "no_bias": "1", 
-        "num_filter": "32", 
-        "pad": "(4, 4)", 
-        "stride": "(1, 1)"
-      }, 
-      "inputs": [[37, 0, 0], [38, 0, 0]]
-    }, 
-    {
-      "op": "LeakyReLU", 
-      "name": "leakyrelu23", 
-      "attrs": {"act_type": "elu"}, 
-      "inputs": [[39, 0, 0]]
-    }, 
-    {
-      "op": "null", 
-      "name": "convolution28_weight", 
-      "attrs": {
-        "dilate": "(2, 2)", 
-        "kernel": "(3, 3)", 
-        "no_bias": "1", 
-        "num_filter": "32", 
-        "pad": "(2, 2)", 
-        "stride": "(1, 1)"
-      }, 
-      "inputs": []
-    }, 
-    {
-      "op": "Convolution", 
-      "name": "convolution28", 
-      "attrs": {
-        "dilate": "(2, 2)", 
-        "kernel": "(3, 3)", 
-        "no_bias": "1", 
-        "num_filter": "32", 
-        "pad": "(2, 2)", 
-        "stride": "(1, 1)"
-      }, 
-      "inputs": [[40, 0, 0], [41, 0, 0]]
-    }, 
-    {
-      "op": "LeakyReLU", 
-      "name": "leakyrelu24", 
-      "attrs": {"act_type": "elu"}, 
-      "inputs": [[42, 0, 0]]
-    }, 
-    {
-      "op": "null", 
-      "name": "convolution29_weight", 
-      "attrs": {
-        "dilate": "(1, 1)", 
-        "kernel": "(3, 3)", 
-        "no_bias": "1", 
-        "num_filter": "32", 
-        "pad": "(1, 1)", 
-        "stride": "(1, 1)"
-      }, 
-      "inputs": []
-    }, 
-    {
-      "op": "Convolution", 
-      "name": "convolution29", 
-      "attrs": {
-        "dilate": "(1, 1)", 
-        "kernel": "(3, 3)", 
-        "no_bias": "1", 
-        "num_filter": "32", 
-        "pad": "(1, 1)", 
-        "stride": "(1, 1)"
-      }, 
-      "inputs": [[43, 0, 0], [44, 0, 0]]
-    }, 
-    {
-      "op": "null", 
-      "name": "batchnorm13_gamma", 
-      "attrs": {
-        "eps": "2e-005", 
-        "fix_gamma": "0", 
-        "momentum": "0.9"
-      }, 
-      "inputs": []
-    }, 
-    {
-      "op": "null", 
-      "name": "batchnorm13_beta", 
-      "attrs": {
-        "eps": "2e-005", 
-        "fix_gamma": "0", 
-        "momentum": "0.9"
-      }, 
-      "inputs": []
-    }, 
-    {
-      "op": "null", 
-      "name": "batchnorm13_moving_mean", 
-      "attrs": {
-        "__init__": "[\"zero\", {}]", 
-        "eps": "2e-005", 
-        "fix_gamma": "0", 
-        "momentum": "0.9"
-      }, 
-      "inputs": []
-    }, 
-    {
-      "op": "null", 
-      "name": "batchnorm13_moving_var", 
-      "attrs": {
-        "__init__": "[\"one\", {}]", 
-        "eps": "2e-005", 
-        "fix_gamma": "0", 
-        "momentum": "0.9"
-      }, 
-      "inputs": []
-    }, 
-    {
-      "op": "BatchNorm", 
-      "name": "batchnorm13", 
-      "attrs": {
-        "eps": "2e-005", 
-        "fix_gamma": "0", 
-        "momentum": "0.9"
-      }, 
-      "inputs": [[45, 0, 0], [46, 0, 0], [47, 0, 0], [48, 0, 1], [49, 0, 1]]
-    }, 
-    {
-      "op": "elemwise_add", 
-      "name": "_plus10", 
-      "inputs": [[37, 0, 0], [50, 0, 0]]
-    }, 
-    {
-      "op": "null", 
-      "name": "convolution30_weight", 
-      "attrs": {
-        "dilate": "(8, 8)", 
-        "kernel": "(3, 3)", 
-        "no_bias": "1", 
-        "num_filter": "32", 
-        "pad": "(8, 8)", 
-        "stride": "(1, 1)"
-      }, 
-      "inputs": []
-    }, 
-    {
-      "op": "Convolution", 
-      "name": "convolution30", 
-      "attrs": {
-        "dilate": "(8, 8)", 
-        "kernel": "(3, 3)", 
-        "no_bias": "1", 
-        "num_filter": "32", 
-        "pad": "(8, 8)", 
-        "stride": "(1, 1)"
-      }, 
-      "inputs": [[51, 0, 0], [52, 0, 0]]
-    }, 
-    {
-      "op": "LeakyReLU", 
-      "name": "leakyrelu25", 
-      "attrs": {"act_type": "elu"}, 
-      "inputs": [[53, 0, 0]]
-    }, 
-    {
-      "op": "null", 
-      "name": "convolution31_weight", 
-      "attrs": {
-        "dilate": "(4, 4)", 
-        "kernel": "(3, 3)", 
-        "no_bias": "1", 
-        "num_filter": "32", 
-        "pad": "(4, 4)", 
-        "stride": "(1, 1)"
-      }, 
-      "inputs": []
-    }, 
-    {
-      "op": "Convolution", 
-      "name": "convolution31", 
-      "attrs": {
-        "dilate": "(4, 4)", 
-        "kernel": "(3, 3)", 
-        "no_bias": "1", 
-        "num_filter": "32", 
-        "pad": "(4, 4)", 
-        "stride": "(1, 1)"
-      }, 
-      "inputs": [[54, 0, 0], [55, 0, 0]]
-    }, 
-    {
-      "op": "LeakyReLU", 
-      "name": "leakyrelu26", 
-      "attrs": {"act_type": "elu"}, 
-      "inputs": [[56, 0, 0]]
-    }, 
-    {
-      "op": "null", 
-      "name": "convolution32_weight", 
-      "attrs": {
-        "dilate": "(1, 1)", 
-        "kernel": "(3, 3)", 
-        "no_bias": "1", 
-        "num_filter": "32", 
-        "pad": "(1, 1)", 
-        "stride": "(1, 1)"
-      }, 
-      "inputs": []
-    }, 
-    {
-      "op": "Convolution", 
-      "name": "convolution32", 
-      "attrs": {
-        "dilate": "(1, 1)", 
-        "kernel": "(3, 3)", 
-        "no_bias": "1", 
-        "num_filter": "32", 
-        "pad": "(1, 1)", 
-        "stride": "(1, 1)"
-      }, 
-      "inputs": [[57, 0, 0], [58, 0, 0]]
-    }, 
-    {
-      "op": "null", 
-      "name": "batchnorm14_gamma", 
-      "attrs": {
-        "eps": "2e-005", 
-        "fix_gamma": "0", 
-        "momentum": "0.9"
-      }, 
-      "inputs": []
-    }, 
-    {
-      "op": "null", 
-      "name": "batchnorm14_beta", 
-      "attrs": {
-        "eps": "2e-005", 
-        "fix_gamma": "0", 
-        "momentum": "0.9"
-      }, 
-      "inputs": []
-    }, 
-    {
-      "op": "null", 
-      "name": "batchnorm14_moving_mean", 
-      "attrs": {
-        "__init__": "[\"zero\", {}]", 
-        "eps": "2e-005", 
-        "fix_gamma": "0", 
-        "momentum": "0.9"
-      }, 
-      "inputs": []
-    }, 
-    {
-      "op": "null", 
-      "name": "batchnorm14_moving_var", 
-      "attrs": {
-        "__init__": "[\"one\", {}]", 
-        "eps": "2e-005", 
-        "fix_gamma": "0", 
-        "momentum": "0.9"
-      }, 
-      "inputs": []
-    }, 
-    {
-      "op": "BatchNorm", 
-      "name": "batchnorm14", 
-      "attrs": {
-        "eps": "2e-005", 
-        "fix_gamma": "0", 
-        "momentum": "0.9"
-      }, 
-      "inputs": [[59, 0, 0], [60, 0, 0], [61, 0, 0], [62, 0, 1], [63, 0, 1]]
-    }, 
-    {
-      "op": "elemwise_add", 
-      "name": "_plus11", 
-      "inputs": [[51, 0, 0], [64, 0, 0]]
+      "name": "_plus7", 
+      "inputs": [[57, 0, 0], [70, 0, 0]]
     }, 
     {
       "op": "null", 
       "name": "anchor_gamma", 
-      "attrs": {
-        "eps": "0.001", 
-        "fix_gamma": "1", 
-        "momentum": "0.9"
-      }, 
       "inputs": []
+    }, 
+    {
+      "op": "exp", 
+      "name": "exp1", 
+      "inputs": [[72, 0, 0]]
+    }, 
+    {
+      "op": "_plus_scalar", 
+      "name": "_plusscalar1", 
+      "attrs": {"scalar": "1"}, 
+      "inputs": [[73, 0, 0]]
+    }, 
+    {
+      "op": "log", 
+      "name": "log1", 
+      "inputs": [[74, 0, 0]]
     }, 
     {
       "op": "null", 
@@ -733,17 +841,17 @@
         "fix_gamma": "1", 
         "momentum": "0.9"
       }, 
-      "inputs": [[65, 0, 0], [66, 0, 0], [67, 0, 0], [68, 0, 1], [69, 0, 1]]
+      "inputs": [[71, 0, 0], [75, 0, 0], [76, 0, 0], [77, 0, 1], [78, 0, 1]]
     }, 
     {
       "op": "L2Normalization", 
-      "name": "l2normalization2", 
+      "name": "l2normalization1", 
       "attrs": {"mode": "spatial"}, 
-      "inputs": [[70, 0, 0]]
+      "inputs": [[79, 0, 0]]
     }, 
     {
       "op": "_random_uniform", 
-      "name": "uniform2", 
+      "name": "uniform1", 
       "attrs": {
         "high": "100", 
         "low": "100", 
@@ -753,7 +861,7 @@
     }, 
     {
       "op": "null", 
-      "name": "fullyconnected2_weight", 
+      "name": "fullyconnected1_weight", 
       "attrs": {
         "no_bias": "1", 
         "num_hidden": "1"
@@ -762,17 +870,17 @@
     }, 
     {
       "op": "FullyConnected", 
-      "name": "fullyconnected2", 
+      "name": "fullyconnected1", 
       "attrs": {
         "no_bias": "1", 
         "num_hidden": "1"
       }, 
-      "inputs": [[72, 0, 0], [73, 0, 0]]
+      "inputs": [[81, 0, 0], [82, 0, 0]]
     }, 
     {
       "op": "broadcast_mul", 
-      "name": "broadcast_mul2", 
-      "inputs": [[71, 0, 0], [74, 0, 0]]
+      "name": "broadcast_mul1", 
+      "inputs": [[80, 0, 0], [83, 0, 0]]
     }, 
     {
       "op": "null", 
@@ -780,7 +888,7 @@
       "attrs": {
         "kernel": "(1, 1)", 
         "no_bias": "0", 
-        "num_filter": "1", 
+        "num_filter": "2", 
         "pad": "(0, 0)", 
         "stride": "(1, 1)"
       }, 
@@ -792,7 +900,7 @@
       "attrs": {
         "kernel": "(1, 1)", 
         "no_bias": "0", 
-        "num_filter": "1", 
+        "num_filter": "2", 
         "pad": "(0, 0)", 
         "stride": "(1, 1)"
       }, 
@@ -804,21 +912,21 @@
       "attrs": {
         "kernel": "(1, 1)", 
         "no_bias": "0", 
-        "num_filter": "1", 
+        "num_filter": "2", 
         "pad": "(0, 0)", 
         "stride": "(1, 1)"
       }, 
-      "inputs": [[75, 0, 0], [76, 0, 0], [77, 0, 0]]
+      "inputs": [[84, 0, 0], [85, 0, 0], [86, 0, 0]]
     }, 
     {
       "op": "null", 
-      "name": "logisticregressionoutput2_label", 
+      "name": "logisticregressionoutput1_label", 
       "inputs": []
     }, 
     {
       "op": "LogisticRegressionOutput", 
-      "name": "logisticregressionoutput2", 
-      "inputs": [[78, 0, 0], [79, 0, 0]]
+      "name": "logisticregressionoutput1", 
+      "inputs": [[87, 0, 0], [88, 0, 0]]
     }
   ], 
   "arg_nodes": [
@@ -833,38 +941,40 @@
     13, 
     16, 
     19, 
-    21, 
     22, 
-    23, 
     24, 
+    25, 
+    26, 
     27, 
     30, 
-    32, 
     33, 
-    34, 
-    35, 
+    36, 
     38, 
+    39, 
+    40, 
     41, 
     44, 
-    46, 
     47, 
-    48, 
-    49, 
+    50, 
     52, 
+    53, 
+    54, 
     55, 
     58, 
-    60, 
     61, 
-    62, 
-    63, 
+    64, 
     66, 
     67, 
     68, 
     69, 
-    73, 
+    72, 
     76, 
     77, 
-    79
+    78, 
+    82, 
+    85, 
+    86, 
+    88
   ], 
   "node_row_ptr": [
     0, 
@@ -893,9 +1003,9 @@
     25, 
     26, 
     27, 
+    28, 
+    29, 
     30, 
-    31, 
-    32, 
     33, 
     34, 
     35, 
@@ -904,12 +1014,12 @@
     38, 
     39, 
     40, 
+    41, 
+    42, 
     43, 
     44, 
     45, 
     46, 
-    47, 
-    48, 
     49, 
     50, 
     51, 
@@ -918,12 +1028,12 @@
     54, 
     55, 
     56, 
+    57, 
+    58, 
     59, 
     60, 
     61, 
     62, 
-    63, 
-    64, 
     65, 
     66, 
     67, 
@@ -932,24 +1042,33 @@
     70, 
     71, 
     72, 
+    73, 
+    74, 
     75, 
     76, 
     77, 
     78, 
-    79, 
-    80, 
+    81, 
+    82, 
     83, 
+    84, 
     85, 
     86, 
     87, 
     88, 
     89, 
-    90, 
-    91, 
     92, 
-    93, 
-    94
+    94, 
+    95, 
+    96, 
+    97, 
+    98, 
+    99, 
+    100, 
+    101, 
+    102, 
+    103
   ], 
-  "heads": [[80, 0, 0]], 
+  "heads": [[89, 0, 0]], 
   "attrs": {"mxnet_version": ["int", 10200]}
 }

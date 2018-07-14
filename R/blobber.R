@@ -10,13 +10,14 @@
 #' @param cropNet mxnet model for isolating dolphin
 #' @param saveDir directory to save cropped image
 #' @param minXY minimum width/height in pixels for valid crop
+#' @param target label indicating layer representing class
+#' @param threshold threshold value for triggering a crop
 #' @export
-cropFins <- function(imageName,cropNet,workingImage,saveDir,minXY=100,threshold=.45)
+cropFins <- function(imageName,cropNet,workingImage,saveDir,minXY=100,target=1,threshold=.45)
 {
   if(!("MXFeedForwardModel" %in% class(cropNet))){stop("network must be of class MXFeedForwardModel")}
-  
   workingImage$origImg <-  suppressWarnings( as.cimg(aperm(jpeg::readJPEG(imageName,F),c(2,1,3))) )
-  
+  gc()
   image <- resize(workingImage$origImg,size_x = 150, size_y = 100, interpolation_type = 3)
   dim(image) <- c(150,100,3,1)
   image <- image/max(image)
@@ -25,9 +26,23 @@ cropFins <- function(imageName,cropNet,workingImage,saveDir,minXY=100,threshold=
                                                model=cropNet,
                                                ctx=mxnet::mx.cpu(),
                                                array.layout = "colmajor")
+  targetIsolate <- isoblur(suppressWarnings(as.cimg(netOut[,,target,])),.5)
+  if(length(target)>1)
+  {
+    targetIsolate <- parmax(imsplit(targetIsolate,axis='c'))
+    blobs <- erode_square(label(dilate_square(targetIsolate > (threshold/2), 3),high_connectivity=F),3) 
+    
+  }else{
+    netOutThresh <- targetIsolate > (threshold/2)
+    connectionBuffer <- dilate_rect(netOutThresh,sx=9,sy=9,sz=1)
+    corr <- parmax(imsplit(suppressWarnings(as.cimg(netOut[,,-target,] > (threshold/2))),axis='c'))
+    
+    tightened <- erode_square(netOutThresh,3)
+    overlap <- tightened | (connectionBuffer & erode_square(corr,3) )
+    blobs <- tightened * label(overlap,high_connectivity=T)
+  }
   
-  blobs <- erode_square(label(dilate_square(isoblur(netOut,.5) > threshold,3),high_connectivity=F),3) 
-  edges <- netOut>(threshold+.25)
+  edges <- targetIsolate>threshold
   
   keepers <- table(blobs*edges)
   if(length(keepers) > 1)
@@ -62,10 +77,13 @@ cropFins <- function(imageName,cropNet,workingImage,saveDir,minXY=100,threshold=
         
         if(diff(xSpan) > minXY && diff(ySpan) > minXY)
         {
-        save.image(suppressWarnings(as.cimg(workingImage$origImg[xSpan[1]:xSpan[2],
-                                        ySpan[1]:ySpan[2],,]))  ,file=file.path(saveDir, paste0(mainImgName,"_",blobInc,".jpg")),1.0)
+        save.image(suppressWarnings(as.cimg(workingImage$origImg
+                                            [xSpan[1]:xSpan[2],
+                                             ySpan[1]:ySpan[2],,]))
+                   ,file=file.path(saveDir, paste0(mainImgName,"_",blobInc,".jpg")),1.0)
         }
         unlink( list.files(dirname(tempdir()), pattern = "\\.PPM$|\\.ppm$", full.names = T) )
+        gc()
       }
     }
   }
