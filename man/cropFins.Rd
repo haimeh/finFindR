@@ -4,7 +4,7 @@
 \alias{cropFins}
 \title{cropFins}
 \usage{
-cropFins(imageName, cropNet, workingImage, saveDir, minXY = 100,
+cropFins(imageName, cropNet, workingImage, saveDir, minXY = 100, target = 1,
   threshold = 0.45)
 }
 \arguments{
@@ -17,6 +17,10 @@ cropFins(imageName, cropNet, workingImage, saveDir, minXY = 100,
 \item{saveDir}{directory to save cropped image}
 
 \item{minXY}{minimum width/height in pixels for valid crop}
+
+\item{target}{label indicating layer representing class}
+
+\item{threshold}{threshold value for triggering a crop}
 }
 \details{
 Function loads image and uses the given neural network to isolate any dorsal fins therin.

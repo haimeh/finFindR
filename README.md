@@ -24,7 +24,7 @@ from the crop, the enhanced canny-edges(white) are calculated and the optimal-tr
 ![alt text](inst/procImg/cannyEnhanced.PNG)<br /><br />
 
 This optimal path is used as a guide to extract the input for the neural network.
-The input takes the form of 200 samples from along the optimal path.
+The input takes the form of 300 samples from along the optimal path.
 Each sample consists of a ring around the sample position where the ring is composed of 16 subsamples of the image values. <br />
 ![alt text](inst/procImg/chromaTrace.PNG) <br />
 These measurements quantify overall shape and details such as knicks.<br /><br />
@@ -123,8 +123,8 @@ The image names are also preserved but with the addition of a "_1.jpg" or "_2.jp
                 S3 S1 005_1.jpg
 ```
 <br />
-Field mode also offers the ability to change the sensitivity via the __"Threshold:"__ slider bar. If the app is cropping too many false positives, you can increase the threshold and if the app is missing fins, you can decrease the threshold.<br />
-There is also the option to crop tightly around the fin or to include any visible body via the __Crop Type__ buttons.
+Field mode also offers the ability to change the sensitivity via the __Threshold:__ slider bar. If the app is cropping too many false positives, you can increase the threshold and if the app is missing fins, you can decrease the threshold.<br />
+There is also the option to crop tightly around the fin or to include any visible body via the __CropType__ buttons.
 
 # Image
 ## Cataloguing New Images
@@ -152,12 +152,12 @@ This will add a file named __finFindR.Rdata__ as bellow. A popup will indicate w
 By selecting Rdata as the Input Type you will be presented the __Load Rdata__ button which loads in a previously saved catalogue.<br />
 In the __Query Directory__ box, provide a path containing a finFindR.Rdata save file; such as "12_09_14_finFindR-Crops\S1_07-13-15\101EOS1D" from the above example.
 <br /><br />
-The Rdata files are also used in the __Reference Image Directory__ box by providing a path containing a finFindR.Rdata save file.
+The Rdata files are also used in the __Reference Image Directory__ box by providing a path containing a finFindR.Rdata save file. The reference directory will also iterate through all sub directories, unlike the Query directory, to find finFindR.Rdata files, so by providing the root directory like "12_09_14_finFindR-Crops\", the app will load in all Rdata from the sub directories.
 
 # Comparing Fins
 ## Matches Tab
 When you have data loaded into both the Query and Reference boxes, the app will compare each individual in the query directory against all individuals in the Reference directory. A progress bar will appear in the lower right corner.<br />
-When this process is complete, a table is shown:<br />
+When this process is complete, a table is shown below the two windows where fins can be displayed:<br />
 ![alt text](inst/procImg/matchTable.PNG) <br />
 Each row represents an individual image from the Query directory.<br />
 Each column representes a potential match from the Reference directory, ordered by proximity of match from left to right.<br />
@@ -200,7 +200,7 @@ If you already have assigned id's to images from another source, finFindR can be
   Image: The name of the image file, such as fin.JPG<br />
   CatalogID: The desired id to be associated with the Image<br />
 <br />
-You can also remove fins from the session by omiting them from the csv and selecting __Remove Image if not Included in CSV__<br />
+You can also remove fins from the session by omiting them from the csv and selecting __Remove Image if not Included in CSV__<br /><br />
 
 ## Concatenate Reference Data
 Providing the path to the root for all the directories containing finFindR.Rdata files to the __Reference Image Directory__ box. For the previous examples the root directory would be "12_09_14_finFindR-Crops\"
