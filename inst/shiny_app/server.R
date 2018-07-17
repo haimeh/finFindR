@@ -14,7 +14,7 @@ plotLim <- 4
 networks <- system.file("extdata", package="finFindR")
 
 pathNet <- mxnet::mx.model.load(file.path(networks,'tracePath_256'), 60)
-mxnetModel <- mxnet::mx.model.load(file.path(networks,'fin_triplet32_4096_out'), 2400)
+mxnetModel <- mxnet::mx.model.load(file.path(networks,'fin_triplet32_4096_final'), 5800)
 cropNet <- mxnet::mx.model.load(file.path(networks,'cropperInit'), 940)
 
 

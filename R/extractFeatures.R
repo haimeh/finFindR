@@ -495,12 +495,12 @@ traceFromImage <- function(fin,
                                 endProxRatio)
   
   annulus <- extractAnnulus(fin,pathDF[,1],pathDF[,2])
-
+  plotpath <- cbind(round(pathDF[,1]/resizeFactor+affineFactor[1] ),
+                    round(pathDF[,2]/resizeFactor+affineFactor[2]))
   
   # pathMap <<- pathMap
   # plot(pathMap)
-  # plotpath <- cbind(round(pathDF[,1]/resizeFactor+affineFactor[1] ),
-  #                   round(pathDF[,2]/resizeFactor+affineFactor[2]))
+
   # par(new=TRUE)
   # points(pathDF[,1],pathDF[,2],pch=".",col='red', ann=FALSE, asp = 0)
   
