@@ -13,6 +13,7 @@ https://github.com/haimeh/finFindR/wiki/AppUsage<br />
 
 
 ## Features In Progress
+- Detailed editing of trace <br />
 - Saving key information directly to jpeg metadata<br />
 - k-d tree search for faster matching <br />
 - Improving Rdata workflow <br />
