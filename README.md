@@ -20,4 +20,6 @@ https://github.com/haimeh/finFindR/wiki/AppUsage<br />
 <br /><br />
 
 ## A collaborative effort between
-[alt text](inst/shiny_app/www/west.png) [alt text](inst/shiny_app/www/nmmf.png) 
+
+![west](inst/shiny_app/www/west.png)
+![nmmf](inst/shiny_app/www/nmmf.png) 
