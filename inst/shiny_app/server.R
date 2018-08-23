@@ -14,7 +14,7 @@ plotLim <- 4
 networks <- system.file("extdata", package="finFindR")
 
 pathNet <- mxnet::mx.model.load(file.path(networks,'tracePath_256'), 60)
-mxnetModel <- mxnet::mx.model.load(file.path(networks,'fin_triplet32_4096_final'), 5800)
+mxnetModel <- mxnet::mx.model.load(file.path(networks,'fin_triplet32_4096_final'), 5600)
 cropNet <- mxnet::mx.model.load(file.path(networks,'cropperInit'), 940)
 
 
@@ -551,34 +551,62 @@ function(input, output, session) {
   observeEvent(input$labelWithCSV,{
     if(!is.null(input$csvLabeler))
     {
-      renameTable <- read.csv(input$csvLabeler$datapath)
-      if(all(c("Image","CatalogID") %in% colnames(renameTable)))
+      if(length(sessionQuery$idData)>0)
       {
-        x <- data.frame(Image = as.character(unlist(renameTable['Image'])),ID=renameTable['CatalogID'])
-        y <- data.frame(Image=names(sessionQuery$idData),ids=sessionQuery$idData)
-        
-        if(input$removeForeign)
+        renameTable <- read.csv(input$csvLabeler$datapath)
+        if(all(c("Image","CatalogID") %in% colnames(renameTable)))
         {
-          correction <- merge(x=x,y=y,by.x='Image', by.y='Image')
+          if(nrow(renameTable)==0)
+          {
+            showModal(modalDialog(
+              title = "CSV Format Error",
+              'CSV cannot be empty',
+              size = "s",
+              easyClose = TRUE
+            ))
+          }else{
+          
+            x <- data.frame(Image = as.character(unlist(renameTable['Image'])),ID=renameTable['CatalogID'])
+            y <- data.frame(Image = names(sessionQuery$idData),ids=sessionQuery$idData)
+            
+            if(input$removeForeign)
+            {
+              correction <- merge(x=x,y=y,by.x='Image', by.y='Image')
+            }else{
+              correction <- merge(x=x,y=y,by.x='Image', by.y='Image', all.y=T)
+            }
+            
+            sessionQuery$idData <- as.integer(unlist(correction['CatalogID']))
+            names(sessionQuery$idData) <- as.character(unlist(correction['Image']))
+            
+            sessionQuery$hashData <- sessionQuery$hashData[names(sessionQuery$idData)]
+            sessionQuery$traceData <- sessionQuery$traceData[names(sessionQuery$idData)]
+    
+            rankTable$editCount <- rankTable$editCount+1
+          }
         }else{
-          correction <- merge(x=x,y=y,by.x='Image', by.y='Image', all.y=T)
+          showModal(modalDialog(
+            title = "CSV Format Error",
+            'CSV must contain "Image" and "CatalogID" columns',
+            size = "s",
+            easyClose = TRUE
+          ))
         }
-        
-        sessionQuery$idData <- as.integer(unlist(correction['CatalogID']))
-        names(sessionQuery$idData) <- as.character(unlist(correction['Image']))
-        
-        sessionQuery$hashData <- sessionQuery$hashData[names(sessionQuery$idData)]
-        sessionQuery$traceData <- sessionQuery$traceData[names(sessionQuery$idData)]
-
-        rankTable$editCount <- rankTable$editCount+1
       }else{
         showModal(modalDialog(
-          title = "Label CSV Error",
-          'CSV must contain "Image" and "CatalogID" columns',
+          title = "No Session Query Images Available",
+          "Please load images for labeling, into the Session Query",
           size = "s",
           easyClose = TRUE
         ))
       }
+    }else{
+      showModal(modalDialog(
+        title = "Label CSV Error",
+        'No .csv file selected',
+        size = "s",
+        easyClose = TRUE
+      ))
     }
   })
   
