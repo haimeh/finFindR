@@ -576,7 +576,7 @@ function(input, output, session) {
               correction <- merge(x=x,y=y,by.x='Image', by.y='Image', all.y=T)
             }
             
-            sessionQuery$idData <- as.integer(unlist(correction['CatalogID']))
+            sessionQuery$idData <- as.character(unlist(correction['CatalogID']))
             names(sessionQuery$idData) <- as.character(unlist(correction['Image']))
             
             sessionQuery$hashData <- sessionQuery$hashData[names(sessionQuery$idData)]
