@@ -1178,26 +1178,15 @@ function(input, output, session) {
                    # QUERY
                    if(!is.null(activeRankTableCell$cell))
                    {
-                     # make sure name is new so we dont waste render time
-                     if(is.null(plotsPanel[["TableQuery"]]$fin))
+                     plotsPanel[["TableQuery"]]$fin <- file.path(input$queryDirectory, imageNameTableQuery())
+                     if(plotsPanel[["TableQuery"]]$mode != "default")
                      {
-                       plotsPanel[["TableQuery"]]$fin <- file.path(input$queryDirectory, imageNameTableQuery())
-                     }else{
-                       if(plotsPanel[["TableQuery"]]$fin != file.path(input$queryDirectory, imageNameTableQuery()))
-                       {
-                         if(plotsPanel[["TableQuery"]]$mode != "default")
-                         {
-                           #make sure we have a clean slate
-                           cancelRetrace(readyToRetrace=readyToRetrace,
-                                         targetEnvir=sessionQuery)
-                         }
-
-                         plotsPanel[["TableQuery"]]$fin <- file.path(input$queryDirectory, imageNameTableQuery())
-                         plotsPanel[["TableQuery"]]$coord <- sessionQuery$traceData[imageNameTableQuery()]
-                         
-                         
-                       }
+                       #make sure we have a clean slate
+                       cancelRetrace(readyToRetrace=readyToRetrace,
+                                     targetEnvir=sessionQuery)
                      }
+                     plotsPanel[["TableQuery"]]$fin <- file.path(input$queryDirectory, imageNameTableQuery())
+                     plotsPanel[["TableQuery"]]$coord <- sessionQuery$traceData[imageNameTableQuery()]
                    }
                    
                    if(!is.null(activeRankTableCell$cell)){
@@ -1213,8 +1202,6 @@ function(input, output, session) {
                          plotFinTrace(load.image(rankTable$Name[activeRankTableCell$cell]),
                                       sessionReference$traceData[rankTable$Name[activeRankTableCell$cell]],
                                       input$traceTableRef)
-                         
-
                        }else{
                          NULL
                        }
