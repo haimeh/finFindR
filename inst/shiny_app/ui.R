@@ -139,9 +139,7 @@ fluidPage(
               
               uiOutput("headerTableQuery"),
               
-              plotOutput("imageTableQuery",click = clickOpts(id = "clickPointSet",clip = TRUE)),
-              plotOutput("anglesTableQuery",height = 100)
-              
+              plotOutput("imageTableQuery",click = clickOpts(id = "clickPointSet",clip = TRUE))
               
             ),
             column(width = 6, class = "well",
@@ -152,8 +150,7 @@ fluidPage(
                      label = "Trace",
                      value = FALSE
                    ),
-                   plotOutput("imageTableRef"),
-                   plotOutput("anglesTableRef",height = 100)
+                   plotOutput("imageTableRef")
                    # verbatimTextOutput("IDTableRef")
                    
             )
@@ -177,12 +174,38 @@ fluidPage(
             ),
           #),
           tabsetPanel(id = "matchesTblPanel",
-                      tabPanel("DistanceTab",DT::dataTableOutput("matchDistance"),downloadButton("DistanceTableDownload")),
-                      tabPanel("IDTab",DT::dataTableOutput("matchID"),downloadButton("IDTableDownload")),
-                      tabPanel("NameTab",DT::dataTableOutput("matchName"),downloadButton("NameTableDownload"))
+                      tabPanel("DistanceTab",DT::dataTableOutput("matchDistance"),style = "height:500px; overflow-y: scroll;",downloadButton("DistanceTableDownload")),
+                      tabPanel("IDTab",DT::dataTableOutput("matchID"),style = "height:500px; overflow-y: scroll;",downloadButton("IDTableDownload")),
+                      tabPanel("NameTab",DT::dataTableOutput("matchName"),style = "height:500px; overflow-y: scroll;",downloadButton("NameTableDownload"))
                       )
         ),
       
+        # tabPanel("View",
+        #          fluidRow(
+        #            column(width = 6, class = "well",
+        #                   
+        #                   uiOutput("headerViewQuery"),
+        #                   
+        #                   plotOutput("imageViewQuery",click = clickOpts(id = "clickPointSet",clip = TRUE)),
+        #                   
+        #                   
+        #                   DT::dataTableOutput("memberQueryID")
+        #            ),
+        #            column(width = 6, class = "well",
+        #                   verbatimTextOutput("imageNameViewRef"),
+        #                   verbatimTextOutput("imageIDViewRef"),
+        #                   checkboxInput(
+        #                     inputId = "traceVieweRef",
+        #                     label = "Trace",
+        #                     value = FALSE
+        #                   ),
+        #                   plotOutput("imageViewRef"),
+        #                   DT::dataTableOutput("memberRefID")
+        # 
+        #            )
+        #          )
+        # ),
+        
         tabPanel("Clusters",
           uiOutput("displayWindows"),
           column(width = 12,

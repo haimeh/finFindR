@@ -4,416 +4,21 @@ library("mxnet")
 library("imager")
 library("finFindR")
 
-
 options(shiny.maxRequestSize=10*1024^2)
 options(stringsAsFactors=FALSE)
 
 appendRecursive <- TRUE
 plotLim <- 4
 
-networks <- system.file("extdata", package="finFindR")
+appScripts <- system.file("shiny_app", package="finFindR")
+#sapply(list.files(path=appScripts,pattern="*_app.R"),source,.GlobalEnv)
 
+networks <- system.file("extdata", package="finFindR")
 pathNet <- mxnet::mx.model.load(file.path(networks,'tracePath128'), 0020)
 mxnetModel <- mxnet::mx.model.load(file.path(networks,'fin_triplet32_4096_final'), 5600)
 cropNet <- mxnet::mx.model.load(file.path(networks,'cropperInit'), 940)
 
 
-# --- Helper functions -----------------------------------------------------------------------------------------
-# ==================================================================================================================
-
-plotFinTrace <- function(fin,coordinates,trace)
-{
-  if(length(fin)>0)
-  {
-    par(mar = c(0,0,0,0))
-    if(length(coordinates)>0)
-    {
-      #dont forget to unlist coordinates
-      coordinates <- coordinates[[1]]
-      if(nrow(coordinates) > 0 && trace)
-      {
-        plot(fin, ann=FALSE, asp = 1, axes = FALSE)
-        par(new=TRUE)
-        points(coordinates[,1],coordinates[,2],pch=".",col='red', ann=FALSE, asp = 0)
-      }else{
-        plot(fin, ann=FALSE, axes = FALSE)
-      }
-    }else{
-      plot(fin, ann=FALSE, axes = FALSE)
-    }
-  }else{
-    print("not an image")
-  }
-}
-
-getImgNames <- function(directory,saveEnvir)
-{
-  print("searching")
-  imgs <- try(list.files(directory,full.names = T,pattern = "\\.JPG$|\\.jpg$"))
-  if(typeof(imgs) == "try-error" || length(imgs)==0)
-  {
-    showModal(modalDialog(
-      title = "Search error",
-      HTML(paste("No JPG file found in:<br>",directory)),
-      size = "m",
-      easyClose = TRUE
-    ))
-  }
-  return(imgs)
-}
-
-distanceToRef <- function(queryHash,referenceHash,counterEnvir=NULL)
-{
-  if(!is.null(counterEnvir))
-  {
-    curVal <- get("progressTicker", envir = counterEnvir)
-    incProgress(1/counterEnvir$length, 
-                detail = paste(counterEnvir$progressTicker,"of",counterEnvir$length))
-    assign("progressTicker", curVal +1 ,envir= counterEnvir)
-  }
-  if(length(referenceHash)>0 && !is.null(queryHash))
-  {
-    return(apply(referenceHash,2,
-                 function(x,queryHash)
-                 {
-                   distance <- sqrt(sum((as.numeric(x)-as.numeric(queryHash))^2))
-                   return(if(!is.nan(distance)){distance}else{0})
-                 },queryHash=queryHash)
-    )
-  }
-}
-
-
-finIter <- setRefClass("finIter",
-                       
-                       fields=c("data",
-                                "iter",
-                                "data.shape"),
-                       
-                       contains = "Rcpp_MXArrayDataIter",
-                       
-                       methods=list(
-                         initialize=function(iter=NULL,
-                                             data,
-                                             data.shape){
-                           
-                           data_len <- prod(data.shape)
-                           print(dim(data))
-                           array_iter <- mx.io.arrayiter(data,
-                                                         label=rep(0,ncol(data)),
-                                                         batch.size=ncol(data))
-                           
-                           .self$iter <- array_iter
-                           
-                           .self$data.shape <- data.shape
-                           
-                           .self
-                         },
-                         
-                         value=function(){
-                           val.x <- as.array(.self$iter$value()$data)
-                           val.x[is.na(val.x) | is.nan(val.x) | is.infinite(val.x)]<-(.5)
-                           dim(val.x) <- c(data.shape,16,3,ncol(val.x))
-                           
-                           list(data=mx.nd.array(val.x))
-                         },
-                         
-                         iter.next=function(){
-                           .self$iter$iter.next()
-                         },
-                         reset=function(){
-                           .self$iter$reset()
-                         },
-                         num.pad=function(){
-                           .self$iter$num.pad()
-                         },
-                         finalize=function(){
-                           .self$iter$finalize()
-                         }
-                       )
-)
-
-traceToHash <- function(traceData)
-{
-  iterInputFormat <- sapply(traceData,function(x){as.numeric(resize(x,size_x = 300,interpolation_type = 6))})
-  dataIter <- finIter$new(data = iterInputFormat,
-                          data.shape = 300)
-  print("embed")
-  netEmbedding <- mxnet:::predict.MXFeedForwardModel(mxnetModel,
-                                                     dataIter,
-                                                     array.layout = "colmajor",
-                                                     ctx= mx.cpu(),
-                                                     allow.extra.params=T)
-  rm(dataIter)
-  gc()
-  #dim(netEmbedding) <- c(32,length(traceData),2)
-  #netEmbedding <- apply(netEmbedding, 1:2, mean)
-  
-  print("NeuralNet embedding complete")
-  hashList <- lapply(seq_len(ncol(netEmbedding)), function(i) netEmbedding[,i])
-  print("listified")
-  print(names(traceData))
-  names(hashList) <- names(traceData)
-  print("labeled")
-  return(hashList)
-}
-
-cropDirectory <- function(searchDirectory,
-                          saveDirectory,
-                          cropNet,
-                          workingImage,
-                          minXY=200,
-                          sensitivity,
-                          labelTarget,
-                          includeSubDir=T,
-                          mimicDirStructure=T)
-{
-  # dirStruct <- strsplit(imgName,searchDirectory)
-  queryImgs <- list.files(searchDirectory, 
-                          pattern = "\\.JPG$|\\.jpg$", 
-                          full.names = T, 
-                          recursive = includeSubDir)
-  completeImgs <- list.files(saveDirectory, 
-                             pattern = "\\.JPG$|\\.jpg$", 
-                             full.names = F, 
-                             recursive = T)
-  
-  mainImgName <- lapply(queryImgs, function(imageName){strsplit(basename(imageName),"/.")[[1]][1]})
-  mainImgName <- lapply(mainImgName, function(imageName){strsplit(basename(imageName),"\\.JPG$|\\.jpg$")[[1]]})
-  cropedImgNames <- lapply(completeImgs, function(imageName){strsplit(basename(imageName),"_")[[1]][1]})
-  
-  index <- !(mainImgName %in% cropedImgNames)
-  withProgress(message = 'Cropping', value = 0,
-               {
-                 progressTicker <- 0
-                 for(imgName in queryImgs[index])
-                 {
-                   progressTicker <- progressTicker+1
-                   if(mimicDirStructure)
-                   {
-                     dirStruct <- gsub(searchDirectory,"",imgName)
-                     
-                     folderNames <- unlist(strsplit(dirStruct,"/"))
-                     folderNames <- folderNames[-length(folderNames)]
-                     folderNames <- folderNames[-which(folderNames %in% c("","\\") )]
-                     
-                     newDirStruct <- ""
-                     for(folder in folderNames)
-                     {
-                       newDirStruct <- file.path(newDirStruct,folder)
-                       dir.create(file.path(saveDirectory,newDirStruct), showWarnings = FALSE)
-                     }
-                   }else{
-                     newDirStruct <- ""
-                   }
-                   print("==== + ====")
-                   print(basename(imgName))
-                   #print(file.path(sub('/$','',saveDirectory),sub('^/','',newDirStruct)))
-                   try(cropFins(imageName=imgName,
-                                cropNet=cropNet,
-                                workingImage=workingImage,
-                                saveDir=file.path(sub('/$','',saveDirectory),sub('^/','',newDirStruct)),
-                                minXY=minXY,
-                                target=labelTarget,
-                                threshold=1-sensitivity))
-                   incProgress(1/sum(index), detail = paste(basename(imgName)," -- ",progressTicker,"of",sum(index)))
-                   
-                 }
-               })
-}
-
-processImageData <- function(directory,saveEnvir,appendNew,pathNet)
-{
-  imgPaths <- getImgNames(directory)
-  
-  if(typeof(imgPaths) != "try-error" && length(imgPaths)!=0)
-  {
-    remove <- NULL
-    
-    hashData <- list()
-    traceImg <- list()
-    traceCoord <- list()
-    idData <- NULL
-    
-    progressTicker <- 0
-    for(img in imgPaths)
-    {
-
-      print(paste("loading",basename(img)))
-      progressTicker <- progressTicker+1
-      incProgress(1/length(imgPaths), detail = paste(basename(img)," -- ",progressTicker,"of",length(imgPaths)))
-      traceResults <- try(traceFromImage(load.image(img),NULL,pathNet))
-      if(class(traceResults)!="try-error" && 
-         length(unlist(traceResults)[[1]])>0 &&
-         !is.null(unlist(traceResults)[[1]]))
-      {
-        traceImg <- append(traceImg,list(traceResults$annulus))
-        traceCoord <- append(traceCoord,list(traceResults$coordinates))
-        
-        idData <- append(idData,"unlabeled")
-      }else{
-        
-        print("removed..")
-        print(traceResults)
-        remove <- append(remove,which(imgPaths==img))
-      }
-    }
-    print(remove)
-    if(length(remove)>0){print("removing");imgPaths <- imgPaths[-remove]}
-    hashData <- as.data.frame(traceToHash(traceImg))
-    
-    # name lists of data
-    names(hashData) <- basename(imgPaths)
-    names(traceCoord) <- basename(imgPaths)
-    names(idData) <- basename(imgPaths)
-    if(!appendNew)
-    {
-      saveEnvir$hashData <- list()
-      saveEnvir$traceData <- list()
-      saveEnvir$idData <- NULL
-    }
-    
-    saveEnvir$hashData <- append(hashData,saveEnvir$hashData)
-    saveEnvir$traceData <- append(traceCoord,saveEnvir$traceData)
-    saveEnvir$idData <- append(idData,saveEnvir$idData)
-  }
-}
-
-
-loadRdata <- function(directory,saveEnvir,appendNew,isRef)
-{
-  withProgress(
-    message = "Searching for Rdata Files", value = 0,{
-    RdataFiles <- try(list.files(directory, full.names=TRUE, pattern="\\.Rdata$", recursive=appendNew))
-    if(typeof(RdataFiles) != "try-error" && length(RdataFiles)>0)
-    {
-      tempEnvir <- new.env()
-      tempEnvir$hashData <- list()
-      tempEnvir$traceData <- list()
-      tempEnvir$idData <- NULL
-      
-      loopEnvir <- new.env()
-      for(RdataFile in unique(dirname(RdataFiles)))
-      {
-        incProgress(1/length(unique(dirname(RdataFiles))))
-        if(file.exists(file.path(RdataFile,"finFindR.Rdata")))
-        {
-          print(paste(length(dirname(RdataFiles)),isRef,"of",file.path(RdataFile,"finFindR.Rdata")))
-          load(file.path(RdataFile,"finFindR.Rdata"),loopEnvir)
-          
-          # to make references dir invariant, we only saved the photo name and look for dir when we are loading
-          if(isRef)
-          {
-            names(loopEnvir$hashData) <- normalizePath(file.path(RdataFile,names(loopEnvir$hashData)))
-            names(loopEnvir$traceData) <- normalizePath(file.path(RdataFile,names(loopEnvir$traceData)))
-            names(loopEnvir$idData) <- normalizePath(file.path(RdataFile,names(loopEnvir$idData)))
-          }
-          
-          # this check is needed for a problem with the origional pregen rdata
-          # typically should not be needed
-          consistencyCheck <- c(length(loopEnvir$hashData),length(loopEnvir$traceData),length(loopEnvir$idData) )
-          if(min(consistencyCheck) != max(consistencyCheck))
-          {
-            refNames <- list(names(loopEnvir$hashData),names(loopEnvir$traceData),names(loopEnvir$idData))[which.min(consistencyCheck)]
-            
-            loopEnvir$hashData <- loopEnvir$hashData[unique(unlist(refNames))]
-            loopEnvir$traceData <- loopEnvir$traceData[unique(unlist(refNames))]
-            loopEnvir$idData <- loopEnvir$idData[unlist(refNames)]
-          }
-          
-          
-          tempEnvir$hashData <- append(tempEnvir$hashData,loopEnvir$hashData)
-          tempEnvir$traceData <- append(tempEnvir$traceData,loopEnvir$traceData)
-          tempEnvir$idData <- append(tempEnvir$idData,loopEnvir$idData)
-        }
-      }
-      rm(loopEnvir)
-      
-      if(!appendNew)
-      {
-        saveEnvir$hashData <- list()
-        saveEnvir$traceData <- list()
-        saveEnvir$idData <- NULL
-      }
-      saveEnvir$hashData <- append(saveEnvir$hashData,tempEnvir$hashData)
-      saveEnvir$traceData <- append(saveEnvir$traceData,tempEnvir$traceData)
-      saveEnvir$idData <- append(saveEnvir$idData,tempEnvir$idData)
-      
-      rm(tempEnvir)
-    
-    }else{
-      showModal(modalDialog(
-        title = "Search error",
-        HTML(paste("No Rdata file found in:<br>",directory)),
-        size = "m",
-        easyClose = TRUE
-      ))
-    }
-  })
-}
-
-
-calculateRankTable <- function(rankTable,sessionQuery,sessionReference)
-{
-  counterEnvir <- new.env()
-  counterEnvir$progressTicker <- 0
-  counterEnvir$length <- length(sessionQuery$hashData)
-  withProgress(
-    message = 'Matching', value = 0,
-    distances <- as.data.frame(t(apply(data.frame(sessionQuery$hashData),2,function(x)distanceToRef(x,data.frame(sessionReference$hashData),counterEnvir))))
-  )
-  colnames(distances) <- NULL
-  
-  if(length(distances)>0)
-  {
-    withProgress(
-    message = 'Sorting', value = 0,{
-      sortingIndex <- as.data.frame(apply(distances,1,function(x)order(x,decreasing = F)))
-      incProgress(1/6)
-      rankTable$Name <- apply(sortingIndex,1,function(x)names(sessionReference$idData)[x])
-      # single queries need to be turned back from vectors
-      if(nrow(distances)<=1){rankTable$Name <- as.data.frame(t(rankTable$Name))}
-      rownames(rankTable$Name) <- names(sessionQuery$hashData)
-      incProgress(1/6)
-      
-      rankTable$NameSimple <- matrix(basename(as.character(rankTable$Name)),nrow=nrow(rankTable$Name),ncol=ncol(rankTable$Name))
-      rownames(rankTable$NameSimple) <- names(sessionQuery$hashData)
-      incProgress(1/6)
-      
-      rankTable$ID <- apply(sortingIndex,1,function(x)sessionReference$idData[x])
-      # single queries need to be turned back from vectors
-      if(nrow(distances)<=1){rankTable$ID <- as.data.frame(t(rankTable$ID))}
-      rownames(rankTable$ID) <- names(sessionQuery$hashData)
-      incProgress(1/6)
-
-      rankTable$Unique <- t(!apply(rankTable$ID,1,duplicated))
-      rownames(rankTable$Unique) <- names(sessionQuery$hashData)
-      incProgress(1/6)
-      
-      rankTable$Distance <- t(apply(distances,1,function(x)sort(x,decreasing = F)))
-      rownames(rankTable$Distance) <- names(sessionQuery$hashData)
-      incProgress(1/6)
-    })
-  }
-}
-# extractMetadata <- function(directory,saveEnvir)
-# {
-#   print("searching")
-#   imgs <- try(list.files(directory,full.names = T,pattern = "\\.JPG$"))
-#   if(typeof(imgs) != "try-error" && length(imgs)>0)
-#   {
-#     metadata <- easyEXIF(list.files(directory,full.names = T,pattern = "\\.JPG$"))
-#     metadata <- as.data.frame(do.call(rbind, metadata))
-#     colnames(metadata) <- c("ID","Hash","Lat","Lon","Image")
-#     assign('metadata',metadata,envir = saveEnvir)
-#   }else{
-#     showModal(modalDialog(
-#       title = paste("No JPG found in:",directory),
-#       size = "s",
-#       easyClose = TRUE
-#     ))
-#   }
-# }
 
 
 # --- Server Logic -----------------------------------------------------------------------------------------
@@ -437,87 +42,6 @@ function(input, output, session) {
                                                coord=NULL,
                                                locked=TRUE,
                                                mode="default")
-  
-  # --- set image header pannel
-  generateDisplayHeader <- function(instance,
-                                    mode="default",
-                                    closeOption=T,
-                                    fixOption=T){
-    
-    if(fixOption){
-      modSelection <- tagList(
-        actionButton(paste0("retrace",instance),"Fix"),
-        actionButton(paste0("remove",instance),"Remove"),
-        
-        column(width = 3,checkboxInput(
-          inputId = paste0("trace",instance),
-          label = "Trace",
-          value = FALSE
-        ))
-      )
-    }else{
-      modSelection <- tagList(
-        column(width = 4,
-               checkboxInput(
-                 inputId = paste0("trace",instance),
-                 label = "Trace",
-                 value = TRUE
-               ))
-      )
-    }
-    
-    if(mode=="fix")
-    {
-      return(tagList(
-        h4("Click start point then Click end point"),
-        actionButton(paste0("cancelRetrace",instance),"Cancel"),
-        actionButton(paste0("saveRetrace",instance),"Save")
-      ))
-      
-    }else{
-      
-      return(tagList(
-        fluidRow(
-          column(width = if(closeOption){9}else{12}, 
-                 verbatimTextOutput(paste0("imageName",instance)),
-                 tags$head(tags$style(paste0("#imageName",instance,"{overflow-x:hidden}"))),
-                 
-                 if(mode=="setID")
-                 {
-                   fluidRow(
-                     column(width=9,
-                            textInput(paste0("textID",instance),label = NULL)),
-                     column(width=3,
-                            actionButton(paste0("saveID",instance),label = "Set"))
-                   )
-                 }else{
-                   fluidRow(
-                     column(width=if(fixOption){8}else{12},
-                            tags$head(tags$style(paste0("#imageID",instance,"{overflow-x:hidden}"))),
-                            verbatimTextOutput(paste0("imageID",instance))),
-                     if(fixOption)
-                     {
-                       column(width=3,
-                              actionButton(paste0("changeID",instance),"Change"))
-                     }
-                   )
-                 }),
-          if(closeOption)
-          {
-            column(width = 3,
-                   actionButton(paste0("close",instance),"close"),
-                   # FINISH LOCK
-                   checkboxInput(
-                     inputId = paste0("lock",instance),
-                     label = "Lock",
-                     value = ifelse(plotsPanel[[instance]]$locked,TRUE,FALSE)
-                   )
-            )
-          }
-        ),modSelection
-      ))
-    }
-  }
   
   
   # --- clear session memory
@@ -705,27 +229,6 @@ function(input, output, session) {
     readyToRemove$selected <- NULL
   })
   
-  verifyRemove <- function(name,hashRowSelection)
-  {
-    # hash selection only significant for cluster view
-    if(!is.null(hashRowSelection))
-    {
-      readyToRemove$selected <- hashRowSelection
-    }
-    showModal(modalDialog(
-      title = "Remove data",
-      HTML(paste("Are you sure you want to remove<br>",name,"?")),
-      footer = tagList(actionButton("finalizeRemove", "Remove"),modalButton("Cancel")),#actionButton("cancelRemove","Cancel")),
-      size = "s",
-      easyClose = TRUE
-    ))
-  }
-  prepRemoval <- function(imgSelected,readyToRemove,hashRowSelection=NULL)
-  {
-    readyToRemove$imgName <- imgSelected
-    verifyRemove(imgSelected,hashRowSelection)
-  }
-  
   
   # --- trace with human input
   readyToRetrace <-  reactiveValues(imgName=NULL,
@@ -737,74 +240,6 @@ function(input, output, session) {
   
   traceGuides <-  reactiveValues(tip=c(NULL,NULL),
                                  trailingEnd=c(NULL,NULL))
-  # --- restore defaults upon cancel
-  cancelRetrace <- function(readyToRetrace,targetEnvir)
-  {
-    if(length(readyToRetrace$panelID)>0)
-    {
-      plotsPanel[[readyToRetrace$panelID]]$mode <- "default"
-      
-      traceGuideCounter$count <- (-1)
-      
-      readyToRetrace$imgName <- NULL
-      readyToRetrace$panelID <- NULL
-      readyToRetrace$directory <- NULL
-      readyToRetrace$traceResults <- list()
-    }else{
-      print("no changes")
-      #plotsPanel[[readyToRetrace$panelID]]$mode <- "default"
-    }
-  }
-  
-  # --- save trace edit and update tables
-  saveRetrace <- function(readyToRetrace,targetEnvir)
-  {
-    if(length(readyToRetrace$traceResults)>0)
-    {
-      targetEnvir$traceData[readyToRetrace$imgName] <-  list(readyToRetrace$traceResults$coordinates)
-      targetEnvir$hashData[readyToRetrace$imgName] <-  list(traceToHash( list(readyToRetrace$traceResults$annulus )))
-      print("retrace hash calculated")
-      
-      # --- recalculate rank table ------------------
-      if(length(sessionReference$hashData)>0)
-      {
-        newDistances <- distanceToRef( (unlist(targetEnvir$hashData[readyToRetrace$imgName])),
-                                       data.frame(sessionReference$hashData))
-        newSortingIndex <- order(newDistances)
-        
-        rankTable$Name[readyToRetrace$imgName,] <- names(sessionReference$idData[newSortingIndex])
-        rankTable$NameSimple[readyToRetrace$imgName,] <- basename(names(sessionReference$idData[newSortingIndex]))
-        rankTable$ID[readyToRetrace$imgName,] <- sessionReference$idData[newSortingIndex]
-        rankTable$Unique[readyToRetrace$imgName,] <- !duplicated(sessionReference$idData[newSortingIndex])
-        rankTable$Distance[readyToRetrace$imgName,] <- newDistances[newSortingIndex]
-        
-        rankTable$editCount <- rankTable$editCount+1
-      }
-      # ---------------------------------------------
-      
-      plotsPanel[[readyToRetrace$panelID]]$mode <- "default"
-      
-      traceGuideCounter$count <- (-1)
-      
-      readyToRetrace$imgName <- NULL
-      readyToRetrace$panelID <- NULL
-      readyToRetrace$directory <- NULL
-      readyToRetrace$traceResults <- list()
-    }else{
-      print("skip len-0 trace")
-    }
-  }
-  
-  # --- set window to retrace
-  prepRetrace <- function(panelID,imageName,targetDir,readyToRetrace)
-  {
-    plotsPanel[[panelID]]$mode <- "fix"
-    
-    readyToRetrace$imgName <- imageName
-    readyToRetrace$panelID <- panelID
-    readyToRetrace$directory <- targetDir
-  }
-  
   
   observeEvent(input$clickPointSet,{
     if(!is.null(readyToRetrace$imgName))
@@ -851,17 +286,7 @@ function(input, output, session) {
     }
   })
   
-  # --- set ID
-  assignID <- function(panelID,imageName,targetEnvir)
-  {
-    if(input[[paste0("textID",panelID)]] %in% c(""," "))
-    {
-      #targetEnvir$idData[imageName] <- "unlabeled"
-    }else{
-      targetEnvir$idData[imageName] <- input[[paste0("textID",panelID)]]
-      rankTable$editCount <- rankTable$editCount+1
-    }
-  }
+
   
   
   ##############################################################################################
@@ -874,30 +299,14 @@ function(input, output, session) {
                               Unique=NULL,
                               Distance=NULL,
                               editCount=0)
-  topMatchPerClass <- function(table,index)
-  {
-    if(length(table)>0 && length(index)>0)
-    {
-      if(is.null(table) || is.null(index))
-      {
-        return(NULL)
-      }else{
-        
-        #if(nrow(index)==1){table <- t(table)}
-        sortedIndex <- t(apply(index,1,function(x)order(x,na.last = T,decreasing = T)))
-        table[!index] <- NA
-        for(i in seq_len(nrow(table))){table[i,] <- table[i,sortedIndex[i,], drop=FALSE]}
-        return(table)
-      }
-    }else{
-      return(NULL)
-    }
-  }
+
   rankTableUniqueOnly <- reactiveValues(NameSimple=NULL,
+                                        Name = NULL,
                                         ID=NULL,
                                         Distance=NULL)
   observeEvent(rankTable$editCount,{
     rankTableUniqueOnly$NameSimple <- topMatchPerClass(rankTable$NameSimple, rankTable$Unique)
+    rankTableUniqueOnly$Name <- topMatchPerClass(rankTable$Name, rankTable$Unique)
     rankTableUniqueOnly$ID <- topMatchPerClass(rankTable$ID, rankTable$Unique)
     rankTableUniqueOnly$Distance <- topMatchPerClass(rankTable$Distance, rankTable$Unique)
   })
@@ -915,7 +324,6 @@ function(input, output, session) {
     # reset outputs
     plotsPanel[["TableQuery"]]$fin <- file.path(input$queryDirectory, imageNameTableQuery())
     plotsPanel[["TableQuery"]]$coord <- matrix(sessionQuery$traceData[imageNameTableQuery()] ,ncol=2)
-    
   })
   observeEvent(input[[paste0("saveRetrace","TableQuery")]],ignoreInit=T,{
     saveRetrace(readyToRetrac=readyToRetrace,
@@ -1057,7 +465,11 @@ function(input, output, session) {
       rankTable$NameSimple[,index, drop=FALSE]
     }},
     selection = list(mode="single",target = "cell"),
-    options = list(lengthChange = T, rownames=T)
+    options = list(lengthChange = T, 
+                   rownames=T, 
+                   ordering=F, 
+                   paging = T,
+                   pageLength = 1000, lengthMenu = list('500', '1000','2000', '10000'))
   )
   output$matchID <- DT::renderDataTable({
     index <- seq_len(min(as.integer(input$rankLim),ncol(rankTable$ID)))
@@ -1068,11 +480,13 @@ function(input, output, session) {
       rankTable$ID[,index, drop=FALSE]
     }},
     selection = list(mode="single",target = "cell"),
-    options = list(lengthChange = T, rownames=T)
-  )
+    options = list(lengthChange = T, 
+                   rownames=T, 
+                   ordering=F, 
+                   paging = T,
+                   pageLength = 1000, lengthMenu = list('500', '1000','2000', '10000'))
+    )
   output$matchDistance <- DT::renderDataTable({
-    print(rankTable$Distance)
-    print(dim(rankTable$Distance))
     index <- seq_len(min(as.integer(input$rankLim),ncol(rankTable$Distance)))
     if(input$topPerId)
     {
@@ -1081,27 +495,33 @@ function(input, output, session) {
       round(rankTable$Distance[,index, drop=FALSE],2)
     }},
     selection = list(mode="single",target = "cell"),
-    options = list(lengthChange = T, rownames=T)
-  )
+    options = list(lengthChange = T, 
+                   rownames=T, 
+                   ordering=F, 
+                   paging = T,
+                   pageLength = 1000, lengthMenu = list('500', '1000','2000', '10000'))
+    )
   
-  # --- rankTable syncronize selection
-  proxyNameTbl <- DT::dataTableProxy(outputId="matchName", session = shiny::getDefaultReactiveDomain(),deferUntilFlush = T)
-  proxyIDTbl <- DT::dataTableProxy(outputId="matchID", session = shiny::getDefaultReactiveDomain(),deferUntilFlush = T)
-  proxyDistanceTbl <- DT::dataTableProxy(outputId="matchDistance", session = shiny::getDefaultReactiveDomain(),deferUntilFlush = T)
   
+  # # --- rankTable syncronize selection
   proxyFastNameTbl <- DT::dataTableProxy(outputId="matchName", session = shiny::getDefaultReactiveDomain(),deferUntilFlush = F)
   proxyFastIDTbl <- DT::dataTableProxy(outputId="matchID", session = shiny::getDefaultReactiveDomain(),deferUntilFlush = F)
   proxyFastDistanceTbl <- DT::dataTableProxy(outputId="matchDistance", session = shiny::getDefaultReactiveDomain(),deferUntilFlush = F)
   
-  
+  proxyNameTbl <- DT::dataTableProxy(outputId="matchName", session = shiny::getDefaultReactiveDomain(),deferUntilFlush = T)
+  proxyIDTbl <- DT::dataTableProxy(outputId="matchID", session = shiny::getDefaultReactiveDomain(),deferUntilFlush = T)
+  proxyDistanceTbl <- DT::dataTableProxy(outputId="matchDistance", session = shiny::getDefaultReactiveDomain(),deferUntilFlush = T)
+
+
+
   observeEvent(input$matchName_cell_clicked,
                if(length(input$matchName_cells_selected)==2)
                {
                  activeRankTableCell$cell <- input$matchName_cells_selected
-                 
+
                  selectCells(proxyDistanceTbl,selected=input$matchName_cells_selected)
                  selectCells(proxyIDTbl,selected=input$matchName_cells_selected)
-                 
+
                  selectCells(proxyFastDistanceTbl,selected=input$matchName_cells_selected)
                  selectCells(proxyFastIDTbl,selected=input$matchName_cells_selected)
                }
@@ -1110,10 +530,10 @@ function(input, output, session) {
                if(length(input$matchID_cells_selected)==2)
                {
                  activeRankTableCell$cell <- input$matchID_cells_selected
-                 
+
                  selectCells(proxyNameTbl,selected=input$matchID_cells_selected)
                  selectCells(proxyDistanceTbl,selected=input$matchID_cells_selected)
-                 
+
                  selectCells(proxyFastNameTbl,selected=input$matchID_cells_selected)
                  selectCells(proxyFastDistanceTbl,selected=input$matchID_cells_selected)
                }
@@ -1122,14 +542,15 @@ function(input, output, session) {
                if(length(input$matchDistance_cells_selected)==2)
                {
                  activeRankTableCell$cell <- input$matchDistance_cells_selected
-                 
+
                  selectCells(proxyNameTbl,selected=input$matchDistance_cells_selected)
                  selectCells(proxyIDTbl,selected=input$matchDistance_cells_selected)
-                 
+
                  selectCells(proxyFastNameTbl,selected=input$matchDistance_cells_selected)
                  selectCells(proxyFastIDTbl,selected=input$matchDistance_cells_selected)
                }
   )
+
   # make sure updated when rendered
   observeEvent(input$matchesTblPanel,{
     if(input$matchesTblPanel=="DistanceTab")
@@ -1152,7 +573,6 @@ function(input, output, session) {
   })
   
   
-  
   # --- rankTable calculate distances
   observeEvent(c(input$loadRdataQuery,
                  input$loadRdataRef,
@@ -1162,10 +582,11 @@ function(input, output, session) {
                       !is.null(sessionQuery$hashData))
                    {
                      print("calculating rank table")
-                     calculateRankTable(rankTable,sessionQuery,sessionReference)
+                     calculateRankTable(rankTable=rankTable,
+                                        sessionQuery=sessionQuery,
+                                        sessionReference=sessionReference)
                      rankTable$editCount <- rankTable$editCount+1
                    }
-                   
                  })
   
   
@@ -1192,20 +613,41 @@ function(input, output, session) {
                    if(!is.null(activeRankTableCell$cell)){
                      
                      # REFERENCE
-                     output$imageNameTableRef <- renderText(rankTable$NameSimple[activeRankTableCell$cell])
-                     output$imageIDTableRef <- renderText(rankTable$ID[activeRankTableCell$cell])
-                     
-                     output$imageTableRef <- renderPlot({
-                       if(length(activeRankTableCell$cell)>1)
-                       {
-                         print(paste('plot:',rankTable$Name[activeRankTableCell$cell]))
-                         plotFinTrace(load.image(rankTable$Name[activeRankTableCell$cell]),
-                                      sessionReference$traceData[rankTable$Name[activeRankTableCell$cell]],
-                                      input$traceTableRef)
+                     if(input$topPerId)
+                     {
+                       # REFERENCE
+                       output$imageNameTableRef <- renderText(rankTableUniqueOnly$NameSimple[activeRankTableCell$cell])
+                       output$imageIDTableRef <- renderText(rankTableUniqueOnly$ID[activeRankTableCell$cell])
+                       
+                       output$imageTableRef <- renderPlot({
+                         if(length(activeRankTableCell$cell)>1)
+                         {
+                           print(paste('plot:',rankTableUniqueOnly$Name[activeRankTableCell$cell]))
+                           plotFinTrace(load.image(rankTableUniqueOnly$Name[activeRankTableCell$cell]),
+                                        sessionReference$traceData[rankTableUniqueOnly$Name[activeRankTableCell$cell]],
+                                        input$traceTableRef)
+                         }else{
+                           NULL
+                         }
+                       })                     
                        }else{
-                         NULL
-                       }
-                     })
+                         # REFERENCE
+                         output$imageNameTableRef <- renderText(rankTable$NameSimple[activeRankTableCell$cell])
+                         output$imageIDTableRef <- renderText(rankTable$ID[activeRankTableCell$cell])
+                         
+                         output$imageTableRef <- renderPlot({
+                           if(length(activeRankTableCell$cell)>1)
+                           {
+                             print(paste('plot:',rankTable$Name[activeRankTableCell$cell]))
+                             plotFinTrace(load.image(rankTable$Name[activeRankTableCell$cell]),
+                                          sessionReference$traceData[rankTable$Name[activeRankTableCell$cell]],
+                                          input$traceTableRef)
+                           }else{
+                             NULL
+                           }
+                         })                     
+                         }
+                     
                    }
                  })
   
@@ -1339,167 +781,6 @@ function(input, output, session) {
     }
   })
   
-  
-  # ---------- Cluster Display windows --------------------------------------------------
-  
-  windowObserver <- function(imageName,targetDir,panelID,selection,targetEnvir)
-  {
-    # --- close window
-    observeEvent(input[[paste0("close",panelID)]],ignoreInit=T,{
-      print("<-><-><-><-><-><-><-><-><->")
-      print(paste("close:",panelID,plotsPanel[[panelID]]$locked))
-      print("<-><-><-><-><-><-><-><-><->")
-      
-      #NOT CLEAN SOLUTION
-      #CLOSE IS BEING CALLED AFTER CLOSING
-      if(exists(paste(panelID),envir = plotsPanel))
-      {
-        if(!plotsPanel[[panelID]]$locked)
-        {
-          removeIndex <- which(displayActive$activeSelections==selection)
-          if(length(removeIndex)>0)
-          {
-            print(c(removeIndex,displayActive$activeSelections[removeIndex]))
-            displayActive$activeSelections <- displayActive$activeSelections[-removeIndex]
-            #displayActive$activeSelections[removeIndex] <- NULL
-            
-            print(paste("ppcontB4:",ls(plotsPanel)))
-            remove(list=paste(panelID),envir = plotsPanel)
-            print(paste("ppcontAFTR:",ls(plotsPanel)))
-          }
-          #remove(list=as.character(paste(panelID)),envir = plotsPanel)
-        }
-      }
-    })
-    
-    
-    # --- remove from session memory
-    observeEvent(input[[paste0("remove",panelID)]],ignoreInit=T,{
-      if(!plotsPanel[[panelID]]$locked)
-      {
-        removeIndex <- which(displayActive$activeSelections==selection)
-        if(length(removeIndex)>0)
-        {
-          prepRemoval(imageName,readyToRemove,selection)
-        }
-      }
-    })
-    # --- set window to retrace
-    observeEvent(input[[paste0("retrace",panelID)]],ignoreInit=T,{
-      prepRetrace(panelID=panelID,
-                  imageName=imageName,
-                  targetDir = input$queryDirectory,
-                  readyToRetrace=readyToRetrace)
-    })
-    
-    # --- restore defaults upon cancel
-    observeEvent(input[[paste0("cancelRetrace",panelID)]],ignoreInit=T,{
-      cancelRetrace(readyToRetrace=readyToRetrace,
-                    targetEnvir=sessionQuery)
-      plotsPanel[[panelID]]$coord <- targetEnvir$traceData[imageName]
-    })
-    
-    # --- save trace edit
-    observeEvent(input[[paste0("saveRetrace",panelID)]],ignoreInit=T,{
-      saveRetrace(readyToRetrac=readyToRetrace,
-                  targetEnvir=sessionQuery)
-      print("save complete")
-      # reset outputs
-      plotsPanel[[panelID]]$coord <- targetEnvir$traceData[imageName]
-      print("outputs reset")
-    })
-    
-    # --- lock window in place
-    observeEvent(input[[paste0("lock",panelID)]],ignoreInit=T,{
-      plotsPanel[[panelID]]$locked <- input[[paste0("lock",panelID)]]
-      if(input[[paste0("lock",panelID)]])
-      {
-        displayActive$lockedSelections <- unique(append(displayActive$lockedSelections,selection))
-      }else{
-        removeIndex <- which(displayActive$lockedSelections == selection)
-        if(length(removeIndex)>0)
-        {
-          displayActive$lockedSelections <- displayActive$lockedSelections[-removeIndex]
-        }
-      }
-    })
-    
-    
-    
-    # --- set id
-    observeEvent(input[[paste0("saveID",panelID)]],{
-      assignID(panelID=panelID,
-               imageName=imageName,
-               targetEnvir=sessionQuery)
-      plotsPanel[[panelID]]$mode <- "default"
-      
-      #neded to update FIX LATER
-      output[[paste0("imageID",panelID)]] <- renderText(sessionQuery$idData[imageName])
-    })
-    observeEvent(input[[paste0("changeID",panelID)]],{
-      plotsPanel[[panelID]]$mode <- "setID"
-    })
-  }
-  
-  windowGenerator <- function(selection,plotsPanel)
-  {
-    hashMapLabel <- strsplit(selection,": ")[[1]]
-    imageRegister <- hashMapLabel[2]
-    panelID <- gsub("[[:punct:]]", "", hashMapLabel[2])
-    panelID <- gsub("[[:space:]]", "", panelID)
-    
-    if(!exists(paste(panelID),envir = plotsPanel))
-    {
-      plotsPanel[[panelID]] <- reactiveValues(fin=NULL,
-                                              coord=NULL,
-                                              locked=FALSE,
-                                              mode="default")
-    }
-    
-    sourceType <- hashMapLabel[1]
-    
-    output[[paste0("imageName",panelID)]] <- renderText(imageRegister)
-    
-    if(substr(sourceType,nchar(sourceType)-4,nchar(sourceType)) == "Query")
-    {
-      targetEnvir <- sessionQuery
-      allowEdit <- T
-      targetDir <- normalizePath(file.path(input$queryDirectory,imageRegister))
-    }else{
-      targetEnvir <- sessionReference
-      allowEdit <- F
-      targetDir <- imageRegister
-    }
-    
-    plotsPanel[[panelID]]$coord <- targetEnvir$traceData[imageRegister]
-    
-    output[[paste0("header",panelID)]] <- renderUI({
-      generateDisplayHeader(panelID,
-                            mode= plotsPanel[[panelID]]$mode,
-                            closeOption = T,
-                            fixOption=allowEdit)
-    })
-    
-    output[[paste0("imageID",panelID)]] <- renderText(targetEnvir$idData[imageRegister])
-    
-    # --- image displays
-    output[[paste0("image",panelID)]] <- renderPlot({
-      print(paste('plot:',targetDir))
-      plotFinTrace(load.image(targetDir),
-                   plotsPanel[[panelID]]$coord,
-                   input[[paste0("trace",panelID)]])#includeTrace
-    })
-    
-    
-    windowObserver(imageRegister,targetDir,panelID,selection,targetEnvir)
-    
-    return(
-      column(width = 12,class = "well",
-             uiOutput(paste0("header",panelID)),
-             plotOutput(paste0("image",panelID),click = clickOpts(id = paste("clickPointSet"),clip = TRUE))
-      )
-    )
-  }
   
   output$displayWindows <- renderUI({
     fluidRow(
