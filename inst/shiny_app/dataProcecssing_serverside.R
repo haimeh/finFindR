@@ -269,30 +269,51 @@ calculateRankTable <- function(rankTable,
   counterEnvir$progressTicker <- 0
   counterEnvir$reactiveDomain <- getDefaultReactiveDomain()
   counterEnvir$length <- length(sessionQuery$hashData)
+  
+  
   withProgress(
     message = 'Matching', value = 0, session = counterEnvir$reactiveDomain,
     {
-    mxdistances <- mx.nd.sqrt(
-      mx.nd.nansum(
-        mx.nd.square(
-          mx.nd.broadcast.sub(
-            lhs = mx.nd.expand.dims(data=mx.nd.transpose(
-              mx.nd.array(data.matrix(data.frame(sessionQuery$hashData)))), axis=1),
-            rhs = mx.nd.expand.dims(data=mx.nd.transpose(
-              mx.nd.array(data.matrix(data.frame(sessionReference$hashData)))), axis=2)
+      fullQueryIndeces <- seq_len(length(sessionQuery$hashData))
+      queryChunkIndex <- split(fullQueryIndeces, ceiling(seq_along(fullQueryIndeces)/1000))
+      chunkListIndex <- 1
+      mxdistanceChunks <- list()
+      
+      for(index in queryChunkIndex)
+      {
+        queryChunk <- sessionQuery$hashData[index]
+        
+        mxdistanceChunks[[chunkListIndex]] <- mx.nd.sqrt(
+          mx.nd.nansum(
+            mx.nd.square(
+              mx.nd.broadcast.sub(
+                lhs = mx.nd.expand.dims(data=mx.nd.transpose(
+                  mx.nd.array(data.matrix(data.frame(queryChunk)))), axis=1),
+                rhs = mx.nd.expand.dims(data=mx.nd.transpose(
+                  mx.nd.array(data.matrix(data.frame(sessionReference$hashData)))), axis=2)
+              )
+            ),axis = 0
           )
-        ),axis = 0
-      )
-    )
-    incProgress(.99,
-                detail = paste(counterEnvir$length,"of",counterEnvir$length),
-                session = counterEnvir$reactiveDomain)
-    sortingIndex <- as.data.frame(as.array(mx.nd.transpose(mx.nd.argsort(mxdistances,axis = 0)+1)))
-    #sortingIndex <- mx.nd.transpose(mx.nd.argsort(mxdistances,axis = 0))
-    distances <- as.data.frame(as.array(mxdistances))
-    incProgress(.01,
-                detail = paste("Matching Complete"),
-                session = counterEnvir$reactiveDomain)
+        )
+        gc()
+        
+        chunkListIndex = chunkListIndex+1
+        counterEnvir$progressTicker = counterEnvir$progressTicker+length(index)
+        incProgress(length(index)/counterEnvir$length,
+                    detail = paste(counterEnvir$progressTicker,"of",counterEnvir$length),
+                    session = counterEnvir$reactiveDomain)
+        
+      }
+      mxdistances <-  mx.nd.concat(mxdistanceChunks,dim = 1)
+      #clear the nd arrays
+      rm(mxdistanceChunks)
+      gc()
+      sortingIndex <- as.data.frame(as.array(mx.nd.transpose(mx.nd.argsort(mxdistances,axis = 0)+1)))
+      #sortingIndex <- mx.nd.transpose(mx.nd.argsort(mxdistances,axis = 0))
+      distances <- as.data.frame(as.array(mxdistances))
+      incProgress(0,
+                  detail = paste("Matching Complete"),
+                  session = counterEnvir$reactiveDomain)
     }
   )
   

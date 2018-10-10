@@ -34,6 +34,7 @@ function(input, output, session) {
   
   # --- stop r from app ui
   session$onSessionEnded(function(){
+    gc()
     stopApp()
   })
   
