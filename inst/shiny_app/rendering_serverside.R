@@ -26,6 +26,7 @@ plotFinTrace <- function(fin,coordinates,trace)
 
 # --- set image header pannel
 generateDisplayHeader <- function(instance,
+                                  plotsPanel,
                                   mode="default",
                                   closeOption=T,
                                   fixOption=T){

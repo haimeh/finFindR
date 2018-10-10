@@ -39,7 +39,7 @@ finIter <- setRefClass("finIter",
                            print(dim(data))
                            array_iter <- mx.io.arrayiter(data,
                                                          label=rep(0,ncol(data)),
-                                                         batch.size=ncol(data))
+                                                         batch.size=min(ncol(data),128))
                            
                            .self$iter <- array_iter
                            

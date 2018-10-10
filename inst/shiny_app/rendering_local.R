@@ -101,12 +101,14 @@ windowObserver <- function(imageName,targetDir,panelID,selection,targetEnvir)
   })
 }
 
-  
-windowGenerator <- function(selection,plotsPanel)
+
+windowGenerator <- function(selection,
+                            plotsPanel)
 {
+  #browser()
   hashMapLabel <- strsplit(selection,": ")[[1]]
-  imageRegister <- hashMapLabel[2]
-  panelID <- gsub("[[:punct:]]", "", hashMapLabel[2])
+  imageRegister <- hashMapLabel[3]
+  panelID <- gsub("[[:punct:]]", "", paste0(hashMapLabel,collapse = ""))
   panelID <- gsub("[[:space:]]", "", panelID)
   
   if(!exists(paste(panelID),envir = plotsPanel))

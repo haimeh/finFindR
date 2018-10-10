@@ -654,67 +654,11 @@ function(input, output, session) {
   
   
   
-  #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-  #<-><-><-><-> Catalogue View <-><-><-><-><-><-><-><-><-><-><-><-><-><-><-><-><-><-><-><-><->
-  #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-  # 
-  # # QUERY
-  # if(!is.null(activeRankTableCell$cell))
-  # {
-  #   plotsPanel[["TableQuery"]]$fin <- file.path(input$queryDirectory, imageNameTableQuery())
-  #   if(plotsPanel[["TableQuery"]]$mode != "default")
-  #   {
-  #     #make sure we have a clean slate
-  #     cancelRetrace(readyToRetrace=readyToRetrace,
-  #                   targetEnvir=sessionQuery)
-  #   }
-  #   plotsPanel[["TableQuery"]]$fin <- file.path(input$queryDirectory, imageNameTableQuery())
-  #   plotsPanel[["TableQuery"]]$coord <- sessionQuery$traceData[imageNameTableQuery()]
-  #   
-  # }
-  # output$matchID <- DT::renderDataTable({
-  #   rankTable$ID[,index, drop=FALSE]},
-  #   selection = list(mode="single",target = "cell"),
-  #   options = list(lengthChange = T, 
-  #                  rownames=T, 
-  #                  ordering=F, 
-  #                  paging = F,
-  #                  scrollY = "500px")
-  # )
-  # 
-  # # REFERENCE
-  # output$imageNameTableRef <- renderText(rankTableUniqueOnly$NameSimple[activeRankTableCell$cell])
-  # output$imageIDTableRef <- renderText(rankTableUniqueOnly$ID[activeRankTableCell$cell])
-  # 
-  # output$imageTableRef <- renderPlot({
-  #   if(length(activeRankTableCell$cell)>1)
-  #   {
-  #     print(paste('plot:',rankTableUniqueOnly$Name[activeRankTableCell$cell]))
-  #     plotFinTrace(load.image(rankTableUniqueOnly$Name[activeRankTableCell$cell]),
-  #                  sessionReference$traceData[rankTableUniqueOnly$Name[activeRankTableCell$cell]],
-  #                  input$traceTableRef)
-  #   }else{
-  #     NULL
-  #   }
-  # })   
-  # output$matchID <- DT::renderDataTable({
-  #   rankTable$ID[,index, drop=FALSE]},
-  #   selection = list(mode="single",target = "cell"),
-  #   options = list(lengthChange = T, 
-  #                  rownames=T, 
-  #                  ordering=F, 
-  #                  paging = F,
-  #                  scrollY = "500px")
-  # )
-  # 
-  
-  
   
   #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   #<-><-> Hierarchical Clustering <-><-><-><-><-><-><-><-><-><-><-><-><-><-><-><-><-><-><-><->
   #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   
-  selectedRange <- reactiveValues(y = NULL)
   displayActive <- reactiveValues(activeSelections = NULL,
                                   lockedSelections = NULL)
   
@@ -727,117 +671,54 @@ function(input, output, session) {
                  input$clearQuery,
                  traceBatchDone$count,
                  rankTable$editCount), {
-                   selectedRange$y <- c(0, 1)
-                   sessionStorage$permutation <- NULL
                    
-                   output$hashComparison <- renderPlot(width = "auto",
-                                                       height = reactive(ifelse(!is.null(input$innerWidth),input$innerWidth*2/5,0)),
-                                                       {
-                                                         if(length(sessionReference$hashData)>0 || length(sessionQuery$hashData)>0)
-                                                         {
-                                                           allHashData <- append(sessionQuery$hashData,sessionReference$hashData)
-                                                           
-                                                           hashRow$names <- append(if(length(sessionQuery$hashData)>0){paste(sessionQuery$idData,"Query:",names(sessionQuery$hashData))},
-                                                                                   if(length(sessionReference$hashData)>0){paste(sessionReference$idData,"Refer:",names(sessionReference$hashData))})
-                                                           
-                                                           hashData <- t(data.matrix(data.frame(allHashData)))
-                                                           
-                                                           rownames(hashData) <- lapply(strsplit(hashRow$names,": "),function(x){paste(x[1],basename(x[2]))})
-                                                           
-                                                           if(length(sessionStorage$permutation) == 0 || is.null(sessionStorage$permutation))
-                                                           {
-                                                             par(mar = c(0,0,0,0))
-                                                             dendroParams <- heatmap(hashData,
-                                                                                     margins = c(1,12),
-                                                                                     col = gray.colors(100),
-                                                                                     Colv = NA)
-                                                             sessionStorage$permutation <- dendroParams$rowInd
-                                                           }
-                                                           
-                                                           indRange <- ceiling(selectedRange$y*length(sessionStorage$permutation))
-                                                           indRange[1] <- max(1,indRange[1],na.rm = TRUE)
-                                                           indRange[2] <- min(length(sessionStorage$permutation),indRange[2],na.rm = TRUE)
-                                                           
-                                                           par(mar = c(0,0,0,0))
-                                                           
-                                                           dendroParams <- heatmap(hashData[sessionStorage$permutation[indRange[1]:indRange[2]],],
-                                                                                   margins = c(1,12),
-                                                                                   col = gray.colors(100),
-                                                                                   Colv = NA)
-                                                           
-                                                           sessionStorage$permutation <- sessionStorage$permutation[c(indRange[1]:indRange[2])[dendroParams$rowInd]]
-                                                         }else{
-                                                           NULL
-                                                         }
-                                                       })
+                   if(length(sessionReference$hashData)>0 || length(sessionQuery$hashData)>0)
+                   {
+                     sessionStorage$permutation <- NULL
+                     
+                     allHashData <- append(sessionQuery$hashData,sessionReference$hashData)
+                     
+                     hashRow$names <- append(if(length(sessionQuery$hashData)>0){paste(sessionQuery$idData,"Query:",names(sessionQuery$hashData))},
+                                             if(length(sessionReference$hashData)>0){paste(sessionReference$idData,"Refer:",names(sessionReference$hashData))})
+                     
+                     hashData <- t(data.matrix(data.frame(allHashData)))
+                     
+                     rownames(hashData) <- hashRow$names#lapply(strsplit(hashRow$names,": "),function(x){paste(x[1],basename(x[2]))})
+                     
+                     dist_mat <- dist(hashData, method = 'euclidean')
+                     hclust_avg <- hclust(dist_mat, method = 'average')
+                     sessionStorage$permutation <- hclust_avg$order
+                     
+                     
+                     # create 19 breaks and 20 rgb color values ranging from white to blue
+                     tblBreaks <- quantile(hashData, probs = seq(.05, .95, .05), na.rm = TRUE)
+                     tblColors <- round(seq(255, 40, length.out = length(tblBreaks) + 1), 0) %>%{paste0("rgb(255,", ., ",", ., ")")}
+                     hashTable <- DT::datatable(round(hashData[sessionStorage$permutation,],-1)/10 ) %>% formatStyle(names(hashData), backgroundColor = styleInterval(tblBreaks, tblColors))
+                     
+                     output$hashComparison <-  DT::renderDataTable(
+                       {hashTable},
+                       selection = list(mode="single",target = "row"),
+                       options = tableOptions
+                       )
+                     
+                     #output$hashComparison <-  DT::renderDataTable({hashData[sessionStorage$permutation,]})
+                   }
                  })
   
-  observeEvent(c(input$dblclickHashMap), {
-    brush <- input$brush
-    
-    if(!is.null(brush)){
-      selectedRange$y <- c(brush$ymin, brush$ymax)
-    } else {
-      #zoom out
-      selectedRange$y <- c(0, 1)
-      sessionStorage$permutation <- NULL
-    }
-  })
-  
-  # --- instance selection
-  observeEvent(input$clickHashMap, {
-    click <- input$clickHashMap$y
-    brush <- input$brush
-    
-    if(!is.null(input$hover$y) && !is.null(sessionStorage$permutation))
-    {
-      print(paste("hashMapClick",input$clickHashMap$y))
-      if(round(input$clickHashMap$y)<=1 &&
-         round(input$clickHashMap$y)>=0)
-      {
-        
-        if (!is.null(brush$ymin)) {
-          preInd <- c(brush$ymin, brush$ymax)*(length(sessionStorage$permutation)-1)
-          indexRange <- c(floor(mean(preInd)-(plotLim/2)),ceiling(mean(preInd)+(plotLim/2)))
-          indexRange[1] <- max(1,indexRange[1],na.rm = TRUE)
-          indexRange[2] <- min(length(sessionStorage$permutation)-1,indexRange[2],na.rm = TRUE)
-          
-          newRender <- hashRow$names[sessionStorage$permutation[indexRange[1]:indexRange[2]]]
-          newUniqueIndex <- which(!(newRender %in% displayActive$activeSelections))
-          if(length(newUniqueIndex)>0 &&
-             input$hover$y==input$clickHashMap$y)
-          {
-            #FINISH LOCK
-            # keepIndex <- displayActive$activeSelections %in% c(newRender[-newUniqueIndex], displayActive$lockedSelections)
-            # renderList <- append(displayActive$activeSelections[keepIndex],newRender[newUniqueIndex])
-            #displayActive$activeSelectionsp[!keepIndex] <- newRender[newUniqueIndex]
-            
-            displayActive$activeSelections <- head(append(displayActive$lockedSelections,
-                                                          newRender[newUniqueIndex]),plotLim)
-            print(displayActive$activeSelections)
-          }
-        }else{
-          
-          ind <- round(input$clickHashMap$y*(length(sessionStorage$permutation)-1))
-          ind <- max(0,ind,na.rm = TRUE)
-          ind <- min(length(sessionStorage$permutation)-1,ind,na.rm = TRUE)
-          
-          newRender <- hashRow$names[sessionStorage$permutation[ind+1]]
-          if(!(newRender %in% displayActive$activeSelections) &&
-             input$hover$y==input$clickHashMap$y)
-          {
-            # keepIndex <- (displayActive$activeSelections %in% displayActive$lockedSelections)
-            # print(keepIndex)
-            # displayActive$activeSelections <- head(append(displayActive$activeSelections[keepIndex],newRender),plotLim)
-            
-            displayActive$activeSelections <- head(append(displayActive$lockedSelections,
-                                                          newRender),plotLim)
-            print(displayActive$activeSelections)
-          }
-        }
-      }
-    }
-  })
+  # 
+  # # --- instance selection
+  # observeEvent(input$hashComparison_cell_clicked, {
+  #   
+  #   if(!is.null(sessionStorage$permutation))
+  #   {
+  #     newRender <- hashRow$names[sessionStorage$permutation[input$matchName_cells_selected[1]]]
+  #     if(!(newRender %in% displayActive$activeSelections))
+  #     {
+  #       displayActive$activeSelections <- head(append(displayActive$lockedSelections,
+  #                                                     newRender),plotLim)
+  #     }
+  #   }
+  # })
   
   
   output$displayWindows <- renderUI({
@@ -854,6 +735,10 @@ function(input, output, session) {
       )
     )
   })
+  
+  
+  
+  
   
   
   ##############################################################################################
