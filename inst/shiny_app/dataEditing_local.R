@@ -1,22 +1,16 @@
 # --- set ID
 assignID <- function(panelID,
                      imageName,
-                     rankTable,
-                     activeCell,
+                     # rankTable,
+                     # activeCell,
                      targetEnvir)
 {
   if(input[[paste0("textID",panelID)]] %in% c(""," "))
   {
     print("ignoring change")
-    #targetEnvir$idData[imageName] <- "unlabeled"
   }else{
     targetEnvir$idData[imageName] <- input[[paste0("textID",panelID)]]
-    rownames(rankTable$Name)[activeCell$cell[1]] <- paste(names(sessionQuery$hashData[imageName]),":",sessionQuery$idData[imageName])
-    rownames(rankTable$NameSimple)[activeCell$cell[1]] <- paste(names(sessionQuery$hashData[imageName]),":",sessionQuery$idData[imageName])
-    rownames(rankTable$ID)[activeCell$cell[1]] <- paste(names(sessionQuery$hashData[imageName]),":",sessionQuery$idData[imageName])
-    rownames(rankTable$Unique)[activeCell$cell[1]] <- paste(names(sessionQuery$hashData[imageName]),":",sessionQuery$idData[imageName])
-    rownames(rankTable$Distance)[activeCell$cell[1]] <- paste(names(sessionQuery$hashData[imageName]),":",sessionQuery$idData[imageName])
-    
+
     rankTable$editCount <- rankTable$editCount+1
   }
 }
@@ -74,7 +68,7 @@ saveRetrace <- function(readyToRetrace,
       newDistances <- distanceToRef( (unlist(targetEnvir$hashData[readyToRetrace$imgName])),
                                      data.frame(sessionReference$hashData))
       newSortingIndex <- order(newDistances)
-      browser()
+      
       rankTable$Name[readyToRetrace$rowName,] <- names(sessionReference$idData[newSortingIndex])
       rankTable$NameSimple[readyToRetrace$rowName,] <- basename(names(sessionReference$idData[newSortingIndex]))
       rankTable$ID[readyToRetrace$rowName,] <- sessionReference$idData[newSortingIndex]

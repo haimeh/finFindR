@@ -207,7 +207,7 @@ fluidPage(
                            uiOutput("displayWindows"),
                            column(width = 12,
                                   
-                                  DT::dataTableOutput("hashComparison",width = '1824px')# '1824px' '1280px'
+                                  DT::dataTableOutput("hashComparison",width = '1600px')# '1824px' '1280px'
                            )
                   )
       )

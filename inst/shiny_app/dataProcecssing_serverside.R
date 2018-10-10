@@ -299,30 +299,35 @@ calculateRankTable <- function(rankTable,
   {
     withProgress(
       message = 'Sorting', value = 0,{
+        rownames <- paste(names(sessionQuery$hashData),":",sessionQuery$idData)
+        
         incProgress(0,detail=paste("file locations"))
         rankTable$Name <- apply(sortingIndex,1,function(x)names(sessionReference$idData)[x])
+        simpleNamesVec <- basename(names(sessionReference$idData))
+        rankTable$NameSimple <- apply(sortingIndex,1,function(x)simpleNamesVec[x])
         # single queries need to be turned back from vectors
-        if(nrow(distances)<=1){rankTable$Name <- as.data.frame(t(rankTable$Name))}
-        rownames(rankTable$Name) <- paste(names(sessionQuery$hashData),":",sessionQuery$idData)
+        if(nrow(distances)<=1)
+        {
+          rankTable$Name <- as.data.frame(t(rankTable$Name))
+          rankTable$NameSimple <- as.data.frame(t(rankTable$NameSimple))
+        }
+        rownames(rankTable$Name) <- rownames
+        rownames(rankTable$NameSimple) <- rownames
         
-        incProgress(1/5,detail=paste("render names"))
-        rankTable$NameSimple <- matrix(basename(as.character(rankTable$Name)),nrow=nrow(rankTable$Name),ncol=ncol(rankTable$Name))
-        rownames(rankTable$NameSimple) <- paste(names(sessionQuery$hashData),":",sessionQuery$idData)
-        
-        incProgress(1/5,detail=paste("IDs"))
+        incProgress(1/4,detail=paste("IDs"))
         rankTable$ID <- apply(sortingIndex,1,function(x)sessionReference$idData[x])
         # single queries need to be turned back from vectors
         if(nrow(distances)<=1){rankTable$ID <- as.data.frame(t(rankTable$ID))}
-        rownames(rankTable$ID) <- paste(names(sessionQuery$hashData),":",sessionQuery$idData)
+        rownames(rankTable$ID) <- rownames
         
-        incProgress(1/5,detail=paste("extracting top matches"))
+        incProgress(1/4,detail=paste("extracting top matches"))
         rankTable$Unique <- t(!apply(rankTable$ID,1,duplicated))
-        rownames(rankTable$Unique) <- paste(names(sessionQuery$hashData),":",sessionQuery$idData)
+        rownames(rankTable$Unique) <- rownames
         
-        incProgress(1/5,detail=paste("distance"))
+        incProgress(1/4,detail=paste("distance"))
         rankTable$Distance <- t(apply(distances,1,function(x)sort(x,decreasing = F)))
-        rownames(rankTable$Distance) <- paste(names(sessionQuery$hashData),":",sessionQuery$idData)
-        incProgress(1/5,detail=paste("Done"))
+        rownames(rankTable$Distance) <- rownames
+        incProgress(1/4,detail=paste("Done"))
       })
   }
 }

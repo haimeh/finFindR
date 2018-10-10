@@ -1,6 +1,6 @@
 
 
-verifyRemove <- function(name,hashRowSelection)
+verifyRemove <- function(name,readyToRemove,hashRowSelection=NULL)
 {
   # hash selection only significant for cluster view
   if(!is.null(hashRowSelection))
@@ -18,7 +18,7 @@ verifyRemove <- function(name,hashRowSelection)
 prepRemoval <- function(imgSelected,readyToRemove,hashRowSelection=NULL)
 {
   readyToRemove$imgName <- imgSelected
-  verifyRemove(imgSelected,hashRowSelection)
+  verifyRemove(imgSelected,readyToRemove,hashRowSelection)
 }
 
 
