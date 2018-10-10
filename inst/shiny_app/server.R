@@ -11,7 +11,7 @@ appendRecursive <- TRUE
 plotLim <- 4
 
 appScripts <- system.file("shiny_app", package="finFindR")
-#sapply(list.files(path=appScripts,pattern="*_app.R"),source,.GlobalEnv)
+sapply(list.files(path=appScripts,pattern="*_serverside.R",full.names = T),source,.GlobalEnv)
 
 networks <- system.file("extdata", package="finFindR")
 pathNet <- mxnet::mx.model.load(file.path(networks,'tracePath128'), 0020)
@@ -25,6 +25,12 @@ cropNet <- mxnet::mx.model.load(file.path(networks,'cropperInit'), 940)
 # ==================================================================================================================
 
 function(input, output, session) {
+  
+  # -- get functions used locally
+  for (file in list.files(path=appScripts,pattern="*_local.R",full.names = T))
+  {
+    source(file,local = T)
+  }
   
   # --- stop r from app ui
   session$onSessionEnded(function(){
@@ -289,9 +295,9 @@ function(input, output, session) {
 
   
   
-  ##############################################################################################
+  #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   #<-><-><-><-> Rank Table <-><-><-><-><-><-><-><-><-><-><-><-><-><-><-><-><-><-><-><-><-><->
-  ##############################################################################################
+  #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   
   rankTable <- reactiveValues(Name=NULL,
                               NameSimple=NULL,
@@ -314,7 +320,8 @@ function(input, output, session) {
   # --- tableQuery panel mod events
   observeEvent(input[[paste0("retrace","TableQuery")]],ignoreInit=T,{
     prepRetrace(panelID="TableQuery",
-                imageName=rownames(rankTable$Name)[activeRankTableCell$cell][1],
+                imageName= strsplit(rownames(rankTable$Name)[activeRankTableCell$cell][1]," : ")[[1]][1],#strsplit(rownames(rankTable$Name)[activeRankTableCell$cell][1]," : ")[[1]][1],
+                rowName = rownames(rankTable$Name)[activeRankTableCell$cell][1],
                 targetDir = input$queryDirectory,
                 readyToRetrace=readyToRetrace)
   })
@@ -327,7 +334,8 @@ function(input, output, session) {
   })
   observeEvent(input[[paste0("saveRetrace","TableQuery")]],ignoreInit=T,{
     saveRetrace(readyToRetrac=readyToRetrace,
-                targetEnvir=sessionQuery)
+                targetEnvir=sessionQuery,
+                mxnetModel=mxnetModel)
     
     print("save complete")
     
@@ -350,7 +358,7 @@ function(input, output, session) {
   traceBatchDone <- reactiveValues(count = 0)
   observeEvent(input$traceBatchQuery,{
     withProgress(message = 'Processing Images', value = 0, 
-                 processImageData(input$queryDirectory,sessionQuery,FALSE,pathNet))
+                 processImageData(input$queryDirectory,sessionQuery,FALSE,mxnetModel,pathNet))
     traceBatchDone$count <- traceBatchDone$count+1
   })
   # --- get data out
@@ -418,14 +426,18 @@ function(input, output, session) {
   # --- display specific image
   activeRankTableCell <- reactiveValues(cell=matrix(0,1,2),
                                         delayCell=NULL)
-  imageNameTableQuery <- reactive(rownames(rankTable$Name)[activeRankTableCell$cell][1])
+  # dont forget, we need to split the id from the image name
+  imageNameTableQuery <- reactive(strsplit(rownames(rankTable$Name)[activeRankTableCell$cell][1]," : ")[[1]][1])
   
   observeEvent(input[[paste0("changeID","TableQuery")]],{
     plotsPanel[["TableQuery"]]$mode <- "setID"
   })
+  
   observeEvent(input[[paste0("saveID","TableQuery")]],{
     assignID(panelID="TableQuery",
              imageName=imageNameTableQuery(),
+             rankTable=rankTable,
+             activeCell=activeRankTableCell,
              targetEnvir=sessionQuery)
     
     #neded to update FIX LATER
@@ -456,6 +468,13 @@ function(input, output, session) {
   })
   
   # --- rankTable rendering
+  tableOptions = list(lengthChange = T, 
+                 rownames=T, 
+                 ordering=F, 
+                 paging = T,
+                 scrollY = "500px",
+                 pageLength = 1000, lengthMenu = list('500', '1000','2000', '10000'))
+  #columnDefs = list(list(targets = c(1:50), searchable = FALSE))
   output$matchName <- DT::renderDataTable({
     index <- seq_len(min(as.integer(input$rankLim),ncol(rankTable$NameSimple)))
     if(input$topPerId)
@@ -465,11 +484,7 @@ function(input, output, session) {
       rankTable$NameSimple[,index, drop=FALSE]
     }},
     selection = list(mode="single",target = "cell"),
-    options = list(lengthChange = T, 
-                   rownames=T, 
-                   ordering=F, 
-                   paging = T,
-                   pageLength = 1000, lengthMenu = list('500', '1000','2000', '10000'))
+    options = tableOptions
   )
   output$matchID <- DT::renderDataTable({
     index <- seq_len(min(as.integer(input$rankLim),ncol(rankTable$ID)))
@@ -480,11 +495,7 @@ function(input, output, session) {
       rankTable$ID[,index, drop=FALSE]
     }},
     selection = list(mode="single",target = "cell"),
-    options = list(lengthChange = T, 
-                   rownames=T, 
-                   ordering=F, 
-                   paging = T,
-                   pageLength = 1000, lengthMenu = list('500', '1000','2000', '10000'))
+    options = tableOptions
     )
   output$matchDistance <- DT::renderDataTable({
     index <- seq_len(min(as.integer(input$rankLim),ncol(rankTable$Distance)))
@@ -495,13 +506,8 @@ function(input, output, session) {
       round(rankTable$Distance[,index, drop=FALSE],2)
     }},
     selection = list(mode="single",target = "cell"),
-    options = list(lengthChange = T, 
-                   rownames=T, 
-                   ordering=F, 
-                   paging = T,
-                   pageLength = 1000, lengthMenu = list('500', '1000','2000', '10000'))
+    options = tableOptions
     )
-  
   
   # # --- rankTable syncronize selection
   proxyFastNameTbl <- DT::dataTableProxy(outputId="matchName", session = shiny::getDefaultReactiveDomain(),deferUntilFlush = F)
@@ -511,46 +517,103 @@ function(input, output, session) {
   proxyNameTbl <- DT::dataTableProxy(outputId="matchName", session = shiny::getDefaultReactiveDomain(),deferUntilFlush = T)
   proxyIDTbl <- DT::dataTableProxy(outputId="matchID", session = shiny::getDefaultReactiveDomain(),deferUntilFlush = T)
   proxyDistanceTbl <- DT::dataTableProxy(outputId="matchDistance", session = shiny::getDefaultReactiveDomain(),deferUntilFlush = T)
-
-
-
-  observeEvent(input$matchName_cell_clicked,
-               if(length(input$matchName_cells_selected)==2)
-               {
-                 activeRankTableCell$cell <- input$matchName_cells_selected
-
-                 selectCells(proxyDistanceTbl,selected=input$matchName_cells_selected)
-                 selectCells(proxyIDTbl,selected=input$matchName_cells_selected)
-
-                 selectCells(proxyFastDistanceTbl,selected=input$matchName_cells_selected)
-                 selectCells(proxyFastIDTbl,selected=input$matchName_cells_selected)
-               }
-  )
-  observeEvent(input$matchID_cell_clicked,
-               if(length(input$matchID_cells_selected)==2)
-               {
-                 activeRankTableCell$cell <- input$matchID_cells_selected
-
-                 selectCells(proxyNameTbl,selected=input$matchID_cells_selected)
-                 selectCells(proxyDistanceTbl,selected=input$matchID_cells_selected)
-
-                 selectCells(proxyFastNameTbl,selected=input$matchID_cells_selected)
-                 selectCells(proxyFastDistanceTbl,selected=input$matchID_cells_selected)
-               }
-  )
-  observeEvent(input$matchDistance_cell_clicked,
-               if(length(input$matchDistance_cells_selected)==2)
-               {
-                 activeRankTableCell$cell <- input$matchDistance_cells_selected
-
-                 selectCells(proxyNameTbl,selected=input$matchDistance_cells_selected)
-                 selectCells(proxyIDTbl,selected=input$matchDistance_cells_selected)
-
-                 selectCells(proxyFastNameTbl,selected=input$matchDistance_cells_selected)
-                 selectCells(proxyFastIDTbl,selected=input$matchDistance_cells_selected)
-               }
-  )
-
+  
+  # --- fin image and overlay of traced path
+  observeEvent(c(input$matchName_cell_clicked,
+                 input$matchID_cell_clicked,
+                 input$matchDistance_cell_clicked),{
+                   
+                   if(length(input$matchName_cells_selected)==2 &&
+                      input$matchesTblPanel == "NameTab")
+                   {
+                     activeRankTableCell$cell <- input$matchName_cells_selected
+                     
+                     selectCells(proxyDistanceTbl,selected=input$matchName_cells_selected)
+                     selectCells(proxyIDTbl,selected=input$matchName_cells_selected)
+                     
+                     selectCells(proxyFastDistanceTbl,selected=input$matchName_cells_selected)
+                     selectCells(proxyFastIDTbl,selected=input$matchName_cells_selected)
+                   }
+                   
+                   if(length(input$matchID_cells_selected)==2 &&
+                      input$matchesTblPanel == "IDTab")
+                   {
+                     activeRankTableCell$cell <- input$matchID_cells_selected
+                     
+                     selectCells(proxyNameTbl,selected=input$matchID_cells_selected)
+                     selectCells(proxyDistanceTbl,selected=input$matchID_cells_selected)
+                     
+                     selectCells(proxyFastNameTbl,selected=input$matchID_cells_selected)
+                     selectCells(proxyFastDistanceTbl,selected=input$matchID_cells_selected)
+                   }
+                   
+                   if(length(input$matchDistance_cells_selected)==2 &&
+                      input$matchesTblPanel == "DistanceTab")
+                   {
+                     activeRankTableCell$cell <- input$matchDistance_cells_selected
+                     
+                     selectCells(proxyNameTbl,selected=input$matchDistance_cells_selected)
+                     selectCells(proxyIDTbl,selected=input$matchDistance_cells_selected)
+                     
+                     selectCells(proxyFastNameTbl,selected=input$matchDistance_cells_selected)
+                     selectCells(proxyFastIDTbl,selected=input$matchDistance_cells_selected)
+                   }
+                   
+                   # QUERY
+                   if(!is.null(activeRankTableCell$cell))
+                   {
+                     plotsPanel[["TableQuery"]]$fin <- file.path(input$queryDirectory, imageNameTableQuery())
+                     if(plotsPanel[["TableQuery"]]$mode != "default")
+                     {
+                       #make sure we have a clean slate
+                       cancelRetrace(readyToRetrace=readyToRetrace,
+                                     targetEnvir=sessionQuery)
+                     }
+                     plotsPanel[["TableQuery"]]$coord <- sessionQuery$traceData[imageNameTableQuery()]
+                     
+                   }
+                   
+                   if(!is.null(activeRankTableCell$cell)){
+                     
+                     # REFERENCE
+                     if(input$topPerId)
+                     {
+                       output$imageNameTableRef <- renderText(rankTableUniqueOnly$NameSimple[activeRankTableCell$cell])
+                       output$imageIDTableRef <- renderText(rankTableUniqueOnly$ID[activeRankTableCell$cell])
+                       
+                       output$imageTableRef <- renderPlot({
+                         if(length(activeRankTableCell$cell)>1)
+                         {
+                           print(paste('plot:',rankTableUniqueOnly$Name[activeRankTableCell$cell]))
+                           plotFinTrace(load.image(rankTableUniqueOnly$Name[activeRankTableCell$cell]),
+                                        sessionReference$traceData[rankTableUniqueOnly$Name[activeRankTableCell$cell]],
+                                        input$traceTableRef)
+                         }else{
+                           NULL
+                         }
+                       })                     
+                       }else{
+                         output$imageNameTableRef <- renderText(rankTable$NameSimple[activeRankTableCell$cell])
+                         output$imageIDTableRef <- renderText(rankTable$ID[activeRankTableCell$cell])
+                         
+                         output$imageTableRef <- renderPlot({
+                           if(length(activeRankTableCell$cell)>1)
+                           {
+                             print(paste('plot:',rankTable$Name[activeRankTableCell$cell]))
+                             plotFinTrace(load.image(rankTable$Name[activeRankTableCell$cell]),
+                                          sessionReference$traceData[rankTable$Name[activeRankTableCell$cell]],
+                                          input$traceTableRef)
+                           }else{
+                             NULL
+                           }
+                         })                     
+                         }
+                     
+                   }
+              })
+  
+    
+  
   # make sure updated when rendered
   observeEvent(input$matchesTblPanel,{
     if(input$matchesTblPanel=="DistanceTab")
@@ -591,70 +654,65 @@ function(input, output, session) {
   
   
   
-  # --- fin image and overlay of traced path
-  observeEvent(c(input$matchName_cell_clicked,
-                 input$matchID_cell_clicked,
-                 input$matchDistance_cell_clicked),{
-                   
-                   # QUERY
-                   if(!is.null(activeRankTableCell$cell))
-                   {
-                     plotsPanel[["TableQuery"]]$fin <- file.path(input$queryDirectory, imageNameTableQuery())
-                     if(plotsPanel[["TableQuery"]]$mode != "default")
-                     {
-                       #make sure we have a clean slate
-                       cancelRetrace(readyToRetrace=readyToRetrace,
-                                     targetEnvir=sessionQuery)
-                     }
-                     plotsPanel[["TableQuery"]]$fin <- file.path(input$queryDirectory, imageNameTableQuery())
-                     plotsPanel[["TableQuery"]]$coord <- sessionQuery$traceData[imageNameTableQuery()]
-                   }
-                   
-                   if(!is.null(activeRankTableCell$cell)){
-                     
-                     # REFERENCE
-                     if(input$topPerId)
-                     {
-                       # REFERENCE
-                       output$imageNameTableRef <- renderText(rankTableUniqueOnly$NameSimple[activeRankTableCell$cell])
-                       output$imageIDTableRef <- renderText(rankTableUniqueOnly$ID[activeRankTableCell$cell])
-                       
-                       output$imageTableRef <- renderPlot({
-                         if(length(activeRankTableCell$cell)>1)
-                         {
-                           print(paste('plot:',rankTableUniqueOnly$Name[activeRankTableCell$cell]))
-                           plotFinTrace(load.image(rankTableUniqueOnly$Name[activeRankTableCell$cell]),
-                                        sessionReference$traceData[rankTableUniqueOnly$Name[activeRankTableCell$cell]],
-                                        input$traceTableRef)
-                         }else{
-                           NULL
-                         }
-                       })                     
-                       }else{
-                         # REFERENCE
-                         output$imageNameTableRef <- renderText(rankTable$NameSimple[activeRankTableCell$cell])
-                         output$imageIDTableRef <- renderText(rankTable$ID[activeRankTableCell$cell])
-                         
-                         output$imageTableRef <- renderPlot({
-                           if(length(activeRankTableCell$cell)>1)
-                           {
-                             print(paste('plot:',rankTable$Name[activeRankTableCell$cell]))
-                             plotFinTrace(load.image(rankTable$Name[activeRankTableCell$cell]),
-                                          sessionReference$traceData[rankTable$Name[activeRankTableCell$cell]],
-                                          input$traceTableRef)
-                           }else{
-                             NULL
-                           }
-                         })                     
-                         }
-                     
-                   }
-                 })
+  #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  #<-><-><-><-> Catalogue View <-><-><-><-><-><-><-><-><-><-><-><-><-><-><-><-><-><-><-><-><->
+  #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  # 
+  # # QUERY
+  # if(!is.null(activeRankTableCell$cell))
+  # {
+  #   plotsPanel[["TableQuery"]]$fin <- file.path(input$queryDirectory, imageNameTableQuery())
+  #   if(plotsPanel[["TableQuery"]]$mode != "default")
+  #   {
+  #     #make sure we have a clean slate
+  #     cancelRetrace(readyToRetrace=readyToRetrace,
+  #                   targetEnvir=sessionQuery)
+  #   }
+  #   plotsPanel[["TableQuery"]]$fin <- file.path(input$queryDirectory, imageNameTableQuery())
+  #   plotsPanel[["TableQuery"]]$coord <- sessionQuery$traceData[imageNameTableQuery()]
+  #   
+  # }
+  # output$matchID <- DT::renderDataTable({
+  #   rankTable$ID[,index, drop=FALSE]},
+  #   selection = list(mode="single",target = "cell"),
+  #   options = list(lengthChange = T, 
+  #                  rownames=T, 
+  #                  ordering=F, 
+  #                  paging = F,
+  #                  scrollY = "500px")
+  # )
+  # 
+  # # REFERENCE
+  # output$imageNameTableRef <- renderText(rankTableUniqueOnly$NameSimple[activeRankTableCell$cell])
+  # output$imageIDTableRef <- renderText(rankTableUniqueOnly$ID[activeRankTableCell$cell])
+  # 
+  # output$imageTableRef <- renderPlot({
+  #   if(length(activeRankTableCell$cell)>1)
+  #   {
+  #     print(paste('plot:',rankTableUniqueOnly$Name[activeRankTableCell$cell]))
+  #     plotFinTrace(load.image(rankTableUniqueOnly$Name[activeRankTableCell$cell]),
+  #                  sessionReference$traceData[rankTableUniqueOnly$Name[activeRankTableCell$cell]],
+  #                  input$traceTableRef)
+  #   }else{
+  #     NULL
+  #   }
+  # })   
+  # output$matchID <- DT::renderDataTable({
+  #   rankTable$ID[,index, drop=FALSE]},
+  #   selection = list(mode="single",target = "cell"),
+  #   options = list(lengthChange = T, 
+  #                  rownames=T, 
+  #                  ordering=F, 
+  #                  paging = F,
+  #                  scrollY = "500px")
+  # )
+  # 
   
   
-  ##############################################################################################
+  
+  #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   #<-><-> Hierarchical Clustering <-><-><-><-><-><-><-><-><-><-><-><-><-><-><-><-><-><-><-><->
-  ##############################################################################################
+  #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   
   selectedRange <- reactiveValues(y = NULL)
   displayActive <- reactiveValues(activeSelections = NULL,

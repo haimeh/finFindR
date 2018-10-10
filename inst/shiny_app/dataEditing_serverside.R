@@ -1,70 +1,3 @@
-# --- set window to retrace
-prepRetrace <- function(panelID,imageName,targetDir,readyToRetrace)
-{
-  plotsPanel[[panelID]]$mode <- "fix"
-  
-  readyToRetrace$imgName <- imageName
-  readyToRetrace$panelID <- panelID
-  readyToRetrace$directory <- targetDir
-}
-
-# --- restore defaults upon cancel
-cancelRetrace <- function(readyToRetrace,targetEnvir)
-{
-  if(length(readyToRetrace$panelID)>0)
-  {
-    plotsPanel[[readyToRetrace$panelID]]$mode <- "default"
-    
-    traceGuideCounter$count <- (-1)
-    
-    readyToRetrace$imgName <- NULL
-    readyToRetrace$panelID <- NULL
-    readyToRetrace$directory <- NULL
-    readyToRetrace$traceResults <- list()
-  }else{
-    print("no changes")
-    #plotsPanel[[readyToRetrace$panelID]]$mode <- "default"
-  }
-}
-
-# --- save trace edit and update tables
-saveRetrace <- function(readyToRetrace,targetEnvir)
-{
-  if(length(readyToRetrace$traceResults)>0)
-  {
-    targetEnvir$traceData[readyToRetrace$imgName] <-  list(readyToRetrace$traceResults$coordinates)
-    targetEnvir$hashData[readyToRetrace$imgName] <-  list(traceToHash( list(readyToRetrace$traceResults$annulus )))
-    print("retrace hash calculated")
-    
-    # --- recalculate rank table ------------------
-    if(length(sessionReference$hashData)>0)
-    {
-      newDistances <- distanceToRef( (unlist(targetEnvir$hashData[readyToRetrace$imgName])),
-                                     data.frame(sessionReference$hashData))
-      newSortingIndex <- order(newDistances)
-      
-      rankTable$Name[readyToRetrace$imgName,] <- names(sessionReference$idData[newSortingIndex])
-      rankTable$NameSimple[readyToRetrace$imgName,] <- basename(names(sessionReference$idData[newSortingIndex]))
-      rankTable$ID[readyToRetrace$imgName,] <- sessionReference$idData[newSortingIndex]
-      rankTable$Unique[readyToRetrace$imgName,] <- !duplicated(sessionReference$idData[newSortingIndex])
-      rankTable$Distance[readyToRetrace$imgName,] <- newDistances[newSortingIndex]
-      
-      rankTable$editCount <- rankTable$editCount+1
-    }
-    # ---------------------------------------------
-    
-    plotsPanel[[readyToRetrace$panelID]]$mode <- "default"
-    
-    traceGuideCounter$count <- (-1)
-    
-    readyToRetrace$imgName <- NULL
-    readyToRetrace$panelID <- NULL
-    readyToRetrace$directory <- NULL
-    readyToRetrace$traceResults <- list()
-  }else{
-    print("skip len-0 trace")
-  }
-}
 
 
 verifyRemove <- function(name,hashRowSelection)
@@ -88,18 +21,6 @@ prepRemoval <- function(imgSelected,readyToRemove,hashRowSelection=NULL)
   verifyRemove(imgSelected,hashRowSelection)
 }
 
-
-# --- set ID
-assignID <- function(panelID,imageName,targetEnvir)
-{
-  if(input[[paste0("textID",panelID)]] %in% c(""," "))
-  {
-    #targetEnvir$idData[imageName] <- "unlabeled"
-  }else{
-    targetEnvir$idData[imageName] <- input[[paste0("textID",panelID)]]
-    rankTable$editCount <- rankTable$editCount+1
-  }
-}
 
 
 loadRdata <- function(directory,saveEnvir,appendNew,isRef)

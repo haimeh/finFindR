@@ -22,7 +22,6 @@ getImgNames <- function(directory,
   return(imgs)
 }
 
-
 finIter <- setRefClass("finIter",
                        
                        fields=c("data",
@@ -72,7 +71,8 @@ finIter <- setRefClass("finIter",
                        )
 )
 
-traceToHash <- function(traceData)
+traceToHash <- function(traceData,
+                        mxnetModel)
 {
   iterInputFormat <- sapply(traceData,function(x){as.numeric(resize(x,size_x = 300,interpolation_type = 6))})
   dataIter <- finIter$new(data = iterInputFormat,
@@ -164,6 +164,7 @@ cropDirectory <- function(searchDirectory,
 processImageData <- function(directory,
                              saveEnvir,
                              appendNew,
+                             mxnetModel,
                              pathNet)
 {
   imgPaths <- getImgNames(directory)
@@ -202,7 +203,7 @@ processImageData <- function(directory,
     }
     print(remove)
     if(length(remove)>0){print("removing");imgPaths <- imgPaths[-remove]}
-    hashData <- as.data.frame(traceToHash(traceImg))
+    hashData <- as.data.frame(traceToHash(traceImg,mxnetModel))
     
     # name lists of data
     names(hashData) <- basename(imgPaths)
@@ -242,27 +243,26 @@ topMatchPerClass <- function(table,
   }
 }
 
-# distanceToRef <- function(queryHash,
-#                           referenceHash)
-# {
-#   if(length(referenceHash)>0 && !is.null(queryHash))
-#   {
-#     diff <- apply(referenceHash,2,
-#                  function(x,queryHash)
-#                  {
-#                    distance <- sqrt(sum((as.numeric(x)-as.numeric(queryHash))^2))
-#                    return(if(!is.nan(distance)){distance}else{0})
-#                  },queryHash=queryHash)
-#     return(diff)
-#   }
-# }
+distanceToRef <- function(queryHash,
+                          referenceHash)
+{
+  if(length(referenceHash)>0 && !is.null(queryHash))
+  {
+    diff <- apply(referenceHash,2,
+                 function(x,queryHash)
+                 {
+                   distance <- sqrt(sum((as.numeric(x)-as.numeric(queryHash))^2))
+                   return(if(!is.nan(distance)){distance}else{0})
+                 },queryHash=queryHash)
+    return(diff)
+  }
+}
 
 
 
 calculateRankTable <- function(rankTable,
                                sessionQuery,
-                               sessionReference,
-                               parallel=T)
+                               sessionReference)
 {
 
   counterEnvir <- new.env()
@@ -288,6 +288,7 @@ calculateRankTable <- function(rankTable,
                 detail = paste(counterEnvir$length,"of",counterEnvir$length),
                 session = counterEnvir$reactiveDomain)
     sortingIndex <- as.data.frame(as.array(mx.nd.transpose(mx.nd.argsort(mxdistances,axis = 0)+1)))
+    #sortingIndex <- mx.nd.transpose(mx.nd.argsort(mxdistances,axis = 0))
     distances <- as.data.frame(as.array(mxdistances))
     incProgress(.01,
                 detail = paste("Matching Complete"),
@@ -298,30 +299,30 @@ calculateRankTable <- function(rankTable,
   {
     withProgress(
       message = 'Sorting', value = 0,{
-        incProgress(1/5)
+        incProgress(0,detail=paste("file locations"))
         rankTable$Name <- apply(sortingIndex,1,function(x)names(sessionReference$idData)[x])
         # single queries need to be turned back from vectors
         if(nrow(distances)<=1){rankTable$Name <- as.data.frame(t(rankTable$Name))}
-        rownames(rankTable$Name) <- names(sessionQuery$hashData)
-        incProgress(1/5)
+        rownames(rankTable$Name) <- paste(names(sessionQuery$hashData),":",sessionQuery$idData)
         
+        incProgress(1/5,detail=paste("render names"))
         rankTable$NameSimple <- matrix(basename(as.character(rankTable$Name)),nrow=nrow(rankTable$Name),ncol=ncol(rankTable$Name))
-        rownames(rankTable$NameSimple) <- names(sessionQuery$hashData)
-        incProgress(1/5)
+        rownames(rankTable$NameSimple) <- paste(names(sessionQuery$hashData),":",sessionQuery$idData)
         
+        incProgress(1/5,detail=paste("IDs"))
         rankTable$ID <- apply(sortingIndex,1,function(x)sessionReference$idData[x])
         # single queries need to be turned back from vectors
         if(nrow(distances)<=1){rankTable$ID <- as.data.frame(t(rankTable$ID))}
-        rownames(rankTable$ID) <- names(sessionQuery$hashData)
-        incProgress(1/5)
+        rownames(rankTable$ID) <- paste(names(sessionQuery$hashData),":",sessionQuery$idData)
         
+        incProgress(1/5,detail=paste("extracting top matches"))
         rankTable$Unique <- t(!apply(rankTable$ID,1,duplicated))
-        rownames(rankTable$Unique) <- names(sessionQuery$hashData)
-        incProgress(1/5)
+        rownames(rankTable$Unique) <- paste(names(sessionQuery$hashData),":",sessionQuery$idData)
         
+        incProgress(1/5,detail=paste("distance"))
         rankTable$Distance <- t(apply(distances,1,function(x)sort(x,decreasing = F)))
-        rownames(rankTable$Distance) <- names(sessionQuery$hashData)
-        incProgress(1/5)
+        rownames(rankTable$Distance) <- paste(names(sessionQuery$hashData),":",sessionQuery$idData)
+        incProgress(1/5,detail=paste("Done"))
       })
   }
 }

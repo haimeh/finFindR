@@ -10,11 +10,17 @@ fluidPage(
     )),
   sidebarLayout(
     sidebarPanel(
+        #%%%%%%%%%%%%%%%%%%%%%%%%
+        # save stuff
+        #%%%%%%%%%%%%%%%%%%%%%%%%
         actionButton("saveRdata","Save Session Rdata"),
         actionButton("concatRdata","Concatenate Reference Rdata"),
         
         h1(" "),#just for space
   
+        #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        # QUERY INPUT
+        #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         # all images in directory
         textInput(
           inputId = "queryDirectory",
@@ -28,6 +34,9 @@ fluidPage(
           inline = T
         ),
         
+        #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        # image vs rdata input
+        #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         conditionalPanel(
           condition = "input.inputType == 'Image'",
           actionButton(
@@ -42,6 +51,10 @@ fluidPage(
             label = "Load Rdata"
           )
         ),
+        
+        #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        # Image cropping
+        #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         conditionalPanel(
           condition = "input.inputType == 'Field'",
           fluidRow(
@@ -63,6 +76,9 @@ fluidPage(
           
           
         ),
+        #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        # Label via csv
+        #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         conditionalPanel(
           condition = "input.inputType == 'Label'",
           fluidRow(
@@ -84,10 +100,10 @@ fluidPage(
             value = F
           )
         ),
-        # actionButton(
-        #   inputId = "clearQuery",
-        #   label = "Clear Queries"
-        # ),
+        
+        #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        # REFERENCE INPUT
+        #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         h1(" "),#just for space
         #get data in dir from specified form
         textInput(
@@ -132,6 +148,10 @@ fluidPage(
                             ')),
         
       tabsetPanel(id = "mainTblPanel",
+                  
+        #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        # Matches tab - display ordered table of query to reference matches
+        #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         tabPanel("Matches",
                            
           fluidRow(
@@ -151,61 +171,72 @@ fluidPage(
                      value = FALSE
                    ),
                    plotOutput("imageTableRef")
-                   # verbatimTextOutput("IDTableRef")
                    
             )
           ),
-          #fluidRow(
-            #column(width = 3,
-                   radioButtons(
-                     inputId = "rankLim",
-                     label = "Rank",
-                     inline = T,
-                     choices = c(5,10,20,50),
-                     selected = 10
-                   #)
-            ),
-            #column(width = 2,
-                   checkboxInput(
-                     inputId = "topPerId",
-                     label = "1 Per ID",
-                     value = FALSE
-                   #)
-            ),
-          #),
-          tabsetPanel(id = "matchesTblPanel",
-                      tabPanel("DistanceTab",DT::dataTableOutput("matchDistance"),style = "height:500px; overflow-y: scroll;",downloadButton("DistanceTableDownload")),
-                      tabPanel("IDTab",DT::dataTableOutput("matchID"),style = "height:500px; overflow-y: scroll;",downloadButton("IDTableDownload")),
-                      tabPanel("NameTab",DT::dataTableOutput("matchName"),style = "height:500px; overflow-y: scroll;",downloadButton("NameTableDownload"))
+          radioButtons(
+             inputId = "rankLim",
+             label = "Rank",
+             inline = T,
+             choices = c(5,10,20,50),
+             selected = 10
+          ),
+          fluidRow(
+            column(width=6,
+          checkboxInput(
+            inputId = "topPerId",
+            label = "1 Per ID",
+            value = FALSE
+          ),style="text-align: left"
+          # ),
+          # column(width=6,
+          # radioButtons(
+          #   inputId = "searchSet",
+          #   label = NA,
+          #   inline = T,
+          #   choices = c("Search Queries","Search References", "Search Both"),
+          #   selected = "Search Queries"
+          # ),style="text-align: right"
+          )),
+          tabsetPanel(id = "matchesTblPanel",#,style = "height:500px; overflow-y: scroll;"
+                      tabPanel("IDTab",DT::dataTableOutput("matchID"),downloadButton("IDTableDownload")),
+                      tabPanel("DistanceTab",DT::dataTableOutput("matchDistance"),downloadButton("DistanceTableDownload")),
+                      tabPanel("NameTab",DT::dataTableOutput("matchName"),downloadButton("NameTableDownload"))
                       )
         ),
-      
-        # tabPanel("View",
-        #          fluidRow(
-        #            column(width = 6, class = "well",
-        #                   
-        #                   uiOutput("headerViewQuery"),
-        #                   
-        #                   plotOutput("imageViewQuery",click = clickOpts(id = "clickPointSet",clip = TRUE)),
-        #                   
-        #                   
-        #                   DT::dataTableOutput("memberQueryID")
-        #            ),
-        #            column(width = 6, class = "well",
-        #                   verbatimTextOutput("imageNameViewRef"),
-        #                   verbatimTextOutput("imageIDViewRef"),
-        #                   checkboxInput(
-        #                     inputId = "traceVieweRef",
-        #                     label = "Trace",
-        #                     value = FALSE
-        #                   ),
-        #                   plotOutput("imageViewRef"),
-        #                   DT::dataTableOutput("memberRefID")
-        # 
-        #            )
-        #          )
-        # ),
         
+        #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        # View tab - view images associated with id's in a handy table
+        #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        tabPanel("View Catalogue",
+                 fluidRow(
+                   column(width = 6, class = "well",
+
+                          uiOutput("headerViewQuery"),
+
+                          plotOutput("imageViewQuery",click = clickOpts(id = "clickPointSet",clip = TRUE)),
+                          # --- table for query clicking
+                          DT::dataTableOutput("memberQueryID")
+                   ),
+                   column(width = 6, class = "well",
+                          verbatimTextOutput("imageNameViewRef"),
+                          verbatimTextOutput("imageIDViewRef"),
+                          checkboxInput(
+                            inputId = "traceVieweRef",
+                            label = "Trace",
+                            value = FALSE
+                          ),
+                          plotOutput("imageViewRef"),
+                          # --- table for ref clicking
+                          DT::dataTableOutput("memberRefID")
+
+                   )
+                 )
+        ),
+        
+        #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        # Clusters tab - view dendrogram, representing matches as heirarchical cluster
+        #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         tabPanel("Clusters",
           uiOutput("displayWindows"),
           column(width = 12,
