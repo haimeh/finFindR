@@ -184,7 +184,7 @@ processImageData <- function(directory,
       
       print(paste("loading",basename(img)))
       progressTicker <- progressTicker+1
-      incProgress(1/length(imgPaths), detail = paste(basename(img)," -- ",progressTicker,"of",length(imgPaths)))
+      incProgress(1/length(imgPaths), detail = paste(basename(img)," : ",progressTicker,"of",length(imgPaths)))
       traceResults <- try(traceFromImage(load.image(img),NULL,pathNet))
       if(class(traceResults)!="try-error" && 
          length(unlist(traceResults)[[1]])>0 &&
@@ -279,22 +279,25 @@ calculateRankTable <- function(rankTable,
       chunkListIndex <- 1
       mxdistanceChunks <- list()
       
+      referenceArray <- mx.nd.expand.dims(data=mx.nd.transpose(
+        mx.nd.array(data.matrix(data.frame(sessionReference$hashData)))), axis=2)
+      
       for(index in queryChunkIndex)
       {
-        queryChunk <- sessionQuery$hashData[index]
+        queryArrayChunk <- mx.nd.expand.dims(data=mx.nd.transpose(
+          mx.nd.array(data.matrix(data.frame(sessionQuery$hashData[index])))), axis=1)
         
         mxdistanceChunks[[chunkListIndex]] <- mx.nd.sqrt(
           mx.nd.nansum(
             mx.nd.square(
               mx.nd.broadcast.sub(
-                lhs = mx.nd.expand.dims(data=mx.nd.transpose(
-                  mx.nd.array(data.matrix(data.frame(queryChunk)))), axis=1),
-                rhs = mx.nd.expand.dims(data=mx.nd.transpose(
-                  mx.nd.array(data.matrix(data.frame(sessionReference$hashData)))), axis=2)
+                lhs = queryArrayChunk,
+                rhs = referenceArray
               )
             ),axis = 0
           )
         )
+        rm(queryChunk)
         gc()
         
         chunkListIndex = chunkListIndex+1
@@ -305,9 +308,11 @@ calculateRankTable <- function(rankTable,
         
       }
       mxdistances <-  mx.nd.concat(mxdistanceChunks,dim = 1)
+      
       #clear the nd arrays
-      rm(mxdistanceChunks)
+      rm(mxdistanceChunks,referenceArray)
       gc()
+      
       sortingIndex <- as.data.frame(as.array(mx.nd.transpose(mx.nd.argsort(mxdistances,axis = 0)+1)))
       #sortingIndex <- mx.nd.transpose(mx.nd.argsort(mxdistances,axis = 0))
       distances <- as.data.frame(as.array(mxdistances))
@@ -325,6 +330,7 @@ calculateRankTable <- function(rankTable,
         incProgress(0,detail=paste("file locations"))
         rankTable$Name <- apply(sortingIndex,1,function(x)names(sessionReference$idData)[x])
         simpleNamesVec <- basename(names(sessionReference$idData))
+        incProgress(1/8)
         rankTable$NameSimple <- apply(sortingIndex,1,function(x)simpleNamesVec[x])
         # single queries need to be turned back from vectors
         if(nrow(distances)<=1)
@@ -335,13 +341,13 @@ calculateRankTable <- function(rankTable,
         rownames(rankTable$Name) <- rownames
         rownames(rankTable$NameSimple) <- rownames
         
-        incProgress(1/4,detail=paste("IDs"))
+        incProgress(1/8,detail=paste("IDs"))
         rankTable$ID <- apply(sortingIndex,1,function(x)sessionReference$idData[x])
         # single queries need to be turned back from vectors
         if(nrow(distances)<=1){rankTable$ID <- as.data.frame(t(rankTable$ID))}
         rownames(rankTable$ID) <- rownames
         
-        incProgress(1/4,detail=paste("extracting top matches"))
+        incProgress(1/4,detail=paste("extracting top class matches"))
         rankTable$Unique <- t(!apply(rankTable$ID,1,duplicated))
         rownames(rankTable$Unique) <- rownames
         

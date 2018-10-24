@@ -1,8 +1,6 @@
 # --- set ID
 assignID <- function(panelID,
                      imageName,
-                     # rankTable,
-                     # activeCell,
                      targetEnvir)
 {
   if(input[[paste0("textID",panelID)]] %in% c(""," "))
@@ -14,6 +12,7 @@ assignID <- function(panelID,
     rankTable$editCount <- rankTable$editCount+1
   }
 }
+
 
 # --- set window to retrace
 prepRetrace <- function(panelID,

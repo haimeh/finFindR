@@ -78,7 +78,7 @@ function(input, output, session) {
     plotsPanel[["TableQuery"]]$mode="default"
   })
   
-  # --- relable Rdata via finBase csv
+  # --- relabel Rdata via finBase csv
   observeEvent(input$labelWithCSV,{
     if(!is.null(input$csvLabeler))
     {
@@ -140,7 +140,65 @@ function(input, output, session) {
       ))
     }
   })
-  
+  # --- rename Rdata via finBase csv
+  observeEvent(input$renameWithCSV,{
+    if(!is.null(input$csvRenamer))
+    {
+      if(length(sessionQuery$idData)>0)
+      {
+        renameTable <- read.csv(input$csvRenamer$datapath)
+        if(all(c("Old","New") %in% colnames(renameTable)))
+        {
+          if(nrow(renameTable)==0)
+          {
+            showModal(modalDialog(
+              title = "CSV Format Error",
+              'CSV cannot be empty',
+              size = "s",
+              easyClose = TRUE
+            ))
+          }else{
+            
+            x <- data.frame(Old = as.character(unlist(renameTable['Old'])), New=as.character(unlist(renameTable['New'])))
+            y <- data.frame(Old = names(sessionQuery$idData),New=names(sessionQuery$idData))
+            
+            correction <- merge(x=x,y=y,by.x='Old', by.y='Old', all.y=T)
+            correction$New <- ifelse(is.na(correction$New.x),correction$New.y,correction$New.x)
+            
+            sessionQuery$idData <- sessionQuery$idData[correction$Old]
+            sessionQuery$hashData <- sessionQuery$hashData[correction$Old]
+            sessionQuery$traceData <- sessionQuery$traceData[correction$Old]
+            names(sessionQuery$idData) <- correction$New
+            names(sessionQuery$hashData) <- correction$New
+            names(sessionQuery$traceData) <- correction$New
+            
+            rankTable$editCount <- rankTable$editCount+1
+          }
+        }else{
+          showModal(modalDialog(
+            title = "CSV Format Error",
+            'CSV must contain "Old" and "New" columns',
+            size = "s",
+            easyClose = TRUE
+          ))
+        }
+      }else{
+        showModal(modalDialog(
+          title = "No Session Query Images Available",
+          "Please load images for labeling, into the Session Query",
+          size = "s",
+          easyClose = TRUE
+        ))
+      }
+    }else{
+      showModal(modalDialog(
+        title = "Label CSV Error",
+        'No .csv file selected',
+        size = "s",
+        easyClose = TRUE
+      ))
+    }
+  })
   
   # --- save Rdata
   observeEvent(input$saveRdata,{
@@ -735,6 +793,7 @@ function(input, output, session) {
                        searchDelay = 1000)
                    }
                  })
+  proxyHashComparison <- DT::dataTableProxy(outputId="hashComparison", session = shiny::getDefaultReactiveDomain(),deferUntilFlush = F)
   
   
   # --- instance selection
@@ -746,8 +805,16 @@ function(input, output, session) {
       testIfNewRender <- which(!(newRender %in% displayActive$lockedSelections))
       if(length(testIfNewRender)>0)
       {
-        displayActive$activeSelections <- head(append(displayActive$lockedSelections,
-                                                      newRender[testIfNewRender]),plotLim)
+        
+        displayActive$activeSelections <- tail(append(newRender[testIfNewRender],
+                                                      displayActive$lockedSelections),plotLim)
+        if(length(input$hashComparison_rows_selected)!=length(displayActive$activeSelections))
+        {
+          selectRows(proxyHashComparison,
+                     selected=input$hashComparison_rows_selected[
+                       -which(!(hashRow$names[sessionStorage$permutation[input$hashComparison_rows_selected]] %in%
+                              displayActive$activeSelections)) ])
+        }
       }
     }
   })
@@ -773,6 +840,11 @@ function(input, output, session) {
           removeIndex <- which(displayActive$activeSelections==selection)
           if(length(removeIndex)>0)
           {
+            selectRows(proxyHashComparison,
+                       selected=input$hashComparison_rows_selected[
+                         -which(hashRow$names[sessionStorage$permutation[input$hashComparison_rows_selected]] ==
+                                  displayActive$activeSelections[removeIndex])])
+            
             print(c(removeIndex,displayActive$activeSelections[removeIndex]))
             displayActive$activeSelections <- displayActive$activeSelections[-removeIndex]
             #displayActive$activeSelections[removeIndex] <- NULL
@@ -795,6 +867,12 @@ function(input, output, session) {
         if(length(removeIndex)>0)
         {
           prepRemoval(imageName,readyToRemove,selection)
+          selectRows(proxyHashComparison,
+                     selected=input$hashComparison_rows_selected[
+                       -which(hashRow$names[sessionStorage$permutation[input$hashComparison_rows_selected]] ==
+                                displayActive$activeSelections[removeIndex])])
+          
+          print(c(removeIndex,displayActive$activeSelections[removeIndex]))
         }
       }
     })

@@ -13,7 +13,7 @@ fluidPage(
       #%%%%%%%%%%%%%%%%%%%%%%%%
       # save stuff
       #%%%%%%%%%%%%%%%%%%%%%%%%
-      actionButton("saveRdata","Save Session Rdata"),
+      actionButton("saveRdata","Save Query Rdata"),
       actionButton("concatRdata","Concatenate Reference Rdata"),
       
       h1(" "),#just for space
@@ -29,8 +29,8 @@ fluidPage(
       
       radioButtons(
         inputId = "inputType",
-        label = "Select Input Type",
-        choices = c("Rdata","Image","Field","Label"),
+        label = "Select Query Directory Action",
+        choices = c("Rdata","Image","Field","Label","Rename"),
         inline = T
       ),
       
@@ -41,7 +41,7 @@ fluidPage(
         condition = "input.inputType == 'Image'",
         actionButton(
           inputId = "traceBatchQuery",
-          label = "Trace"
+          label = "Trace Fins"
         )
       ),
       conditionalPanel(
@@ -100,7 +100,25 @@ fluidPage(
           value = F
         )
       ),
-      
+      #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+      # rename via csv
+      #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+      conditionalPanel(
+        condition = "input.inputType == 'Rename'",
+        fluidRow(
+          column(width=8,
+                 HTML("<div style='height: 45px;'>"),
+                 fileInput(label=NULL,inputId="csvRenamer",accept=".csv"),
+                 HTML("</div>")
+          ),
+          column(width=3,
+                 actionButton(
+                   inputId = "renameWithCSV",
+                   label = "Apply"
+                 )
+          )
+        )
+      ),
       #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
       # REFERENCE INPUT
       #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
