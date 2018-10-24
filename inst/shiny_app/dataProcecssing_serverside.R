@@ -275,7 +275,7 @@ calculateRankTable <- function(rankTable,
     message = 'Matching', value = 0, session = counterEnvir$reactiveDomain,
     {
       fullQueryIndeces <- seq_len(length(sessionQuery$hashData))
-      queryChunkIndex <- split(fullQueryIndeces, ceiling(seq_along(fullQueryIndeces)/1000))
+      queryChunkIndex <- split(fullQueryIndeces, ceiling(seq_along(fullQueryIndeces)/500))
       chunkListIndex <- 1
       mxdistanceChunks <- list()
       
