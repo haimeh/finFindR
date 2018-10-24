@@ -32,7 +32,7 @@ Rcpp::NumericVector extractAnnulus(const Rcpp::NumericVector imageFromR,
   cimg_library::CImg<double> chromaAnnulus(traceLength,16,1,3,0);
   
   const double pi = 3.1415926535897932;
-  double radius = static_cast<int>(traceLength)/150.0;
+  double radius = static_cast<int>(traceLength)/130.0;
   
   for(int n=0; n<16; n++)
   {
