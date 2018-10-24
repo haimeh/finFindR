@@ -117,6 +117,11 @@ fluidPage(
                    label = "Apply"
                  )
           )
+        ),
+        checkboxInput(
+          inputId = "renameFiles",
+          label = "Rename file in addition to finFindR record",
+          value = F
         )
       ),
       #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -142,7 +147,7 @@ fluidPage(
                  condition = "input.referenceType == 'Rdata'",
                  actionButton(
                    inputId = "loadRdataRef",
-                   label = "Load Rdata"
+                   label = "Append Rdata"
                  )
                )),
         column(width=2,
