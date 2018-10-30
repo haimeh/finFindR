@@ -8,7 +8,7 @@ assignID <- function(panelID,
     print("ignoring change")
   }else{
     targetEnvir$idData[imageName] <- input[[paste0("textID",panelID)]]
-
+    
     rankTable$editCount <- rankTable$editCount+1
   }
 }

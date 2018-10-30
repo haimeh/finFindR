@@ -13,13 +13,13 @@
 #' @param target label indicating layer representing class
 #' @param threshold threshold value for triggering a crop
 #' @export
-cropFins <- function(imageName,cropNet,workingImage,saveDir,minXY=100,target=1,threshold=.45)
+cropFins <- function(imageName,cropNet,workingImage,saveDir,minXY=100,target=1,threshold=.45,dim=c(225,150,3,1))
 {
   if(!("MXFeedForwardModel" %in% class(cropNet))){stop("network must be of class MXFeedForwardModel")}
   workingImage$origImg <-  suppressWarnings( as.cimg(aperm(jpeg::readJPEG(imageName,F),c(2,1,3))) )
   gc()
-  image <- resize(workingImage$origImg,size_x = 150, size_y = 100, interpolation_type = 3)
-  dim(image) <- c(150,100,3,1)
+  image <- resize(workingImage$origImg,size_x = dim[1], size_y = dim[2], interpolation_type = 3)
+  dim(image) <- dim
   image <- image/max(image)
   
   netOut <- mxnet:::predict.MXFeedForwardModel(X=image,
