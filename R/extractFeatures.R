@@ -184,7 +184,7 @@ traceFromImage <- function(fin,
   netOut <- mxnet:::predict.MXFeedForwardModel(X=netIn,model=pathNet,ctx=mxnet::mx.cpu(),array.layout = "colmajor")
   dim(netOut) <- c(100,80,2)
   netOut <- parmax(list(as.cimg(netOut[,,1]),as.cimg(netOut[100:1,,2])))
-  
+  browser()
   # --- if no fin found
   #plot(netOut>.5)
   if(!any(netOut>=.4)){print("No fin found");return(list(NULL,NULL))}

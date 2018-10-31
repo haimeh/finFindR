@@ -14,9 +14,9 @@ appScripts <- system.file("shiny_app", package="finFindR")
 sapply(list.files(path=appScripts,pattern="*_serverside.R",full.names = T),source,.GlobalEnv)
 
 networks <- system.file("extdata", package="finFindR")
-pathNet <- mxnet::mx.model.load(file.path(networks,'finTracerfinal10302018'), 0080)
+pathNet <- mxnet::mx.model.load(file.path(networks,'tracePath128'), 0020)
 mxnetModel <- mxnet::mx.model.load(file.path(networks,'fin_triplet32_4096_final'), 5600)
-cropNet <- mxnet::mx.model.load(file.path(networks,'finLocalizerfinal10302018'), 0310)
+cropNet <- mxnet::mx.model.load(file.path(networks,'cropperInit'), 940)
 
 
 
@@ -34,7 +34,6 @@ function(input, output, session) {
   
   # --- stop r from app ui
   session$onSessionEnded(function(){
-    gc()
     stopApp()
   })
   
@@ -78,7 +77,7 @@ function(input, output, session) {
     plotsPanel[["TableQuery"]]$mode="default"
   })
   
-  # --- relabel Rdata via finBase csv
+  # --- relable Rdata via finBase csv
   observeEvent(input$labelWithCSV,{
     if(!is.null(input$csvLabeler))
     {
@@ -140,98 +139,7 @@ function(input, output, session) {
       ))
     }
   })
-  # --- rename Rdata via finBase csv
-  observeEvent(input$renameWithCSV,{
-    if(!is.null(input$csvRenamer))
-    {
-      if(length(sessionQuery$idData)>0)
-      {
-        renameTable <- read.csv(input$csvRenamer$datapath)
-        if(all(c("Old","New") %in% colnames(renameTable)))
-        {
-          if(nrow(renameTable)==0)
-          {
-            showModal(modalDialog(
-              title = "CSV Format Error",
-              'CSV cannot be empty',
-              size = "s",
-              easyClose = TRUE
-            ))
-          }else{
-            
-            if(input$renameFiles)
-            {
-              expectedNameCol <- 'Old'
-              missingJpg <- which(!(as.character(unlist(renameTable['Old'])) %in% list.files(path = input$queryDirectory)))
-              missingRdata <- which(!(as.character(unlist(renameTable['Old']))) %in% names(sessionQuery$idData))
-            }else{
-              expectedNameCol <- 'New'
-              missingJpg <- which(!(as.character(unlist(renameTable['New'])) %in% list.files(path = input$queryDirectory)))
-              missingRdata <- which(!(as.character(unlist(renameTable['Old']))) %in% names(sessionQuery$idData))
-            }
-            #browser()
-            if(length(missingJpg) > 0 ||
-               length(missingRdata) > 0)
-            {
-              showModal(modalDialog(
-                title = "Missing Image Names",
-                HTML(paste0(
-                  if(length(missingJpg) > 0){paste0("Files not found: ",renameTable[missingJpg,expectedNameCol])}else{""},
-                      "<br />",
-                  if(length(missingRdata) > 0){paste0("Records not found: ",as.character(unlist(renameTable['Old']))[missingRdata])}else{""}
-                  )),
-                size = "m",
-                easyClose = TRUE
-              ))
-              #browser()
-            }else{
-              
-              if(input$renameFiles)
-              {
-                file.rename(from = file.path(input$queryDirectory,as.character(unlist(renameTable['Old']))),
-                            to = file.path(input$queryDirectory,as.character(unlist(renameTable['New']))))
-              }
-              x <- data.frame(Old = as.character(unlist(renameTable['Old'])), New=as.character(unlist(renameTable['New'])))
-              y <- data.frame(Old = names(sessionQuery$idData),New=names(sessionQuery$idData))
-              
-              correction <- merge(x=x,y=y,by.x='Old', by.y='Old', all.y=T)
-              correction$New <- ifelse(is.na(correction$New.x),correction$New.y,correction$New.x)
-              
-              sessionQuery$idData <- sessionQuery$idData[correction$Old]
-              sessionQuery$hashData <- sessionQuery$hashData[correction$Old]
-              sessionQuery$traceData <- sessionQuery$traceData[correction$Old]
-              names(sessionQuery$idData) <- correction$New
-              names(sessionQuery$hashData) <- correction$New
-              names(sessionQuery$traceData) <- correction$New
-              
-              rankTable$editCount <- rankTable$editCount+1
-            }
-          }
-        }else{
-          showModal(modalDialog(
-            title = "CSV Format Error",
-            'CSV must contain "Old" and "New" columns',
-            size = "s",
-            easyClose = TRUE
-          ))
-        }
-      }else{
-        showModal(modalDialog(
-          title = "No Session Query Images Available",
-          "Please load images for labeling, into the Session Query",
-          size = "s",
-          easyClose = TRUE
-        ))
-      }
-    }else{
-      showModal(modalDialog(
-        title = "Label CSV Error",
-        'No .csv file selected',
-        size = "s",
-        easyClose = TRUE
-      ))
-    }
-  })
+  
   
   # --- save Rdata
   observeEvent(input$saveRdata,{
@@ -826,7 +734,6 @@ function(input, output, session) {
                        searchDelay = 1000)
                    }
                  })
-  proxyHashComparison <- DT::dataTableProxy(outputId="hashComparison", session = shiny::getDefaultReactiveDomain(),deferUntilFlush = F)
   
   
   # --- instance selection
@@ -838,16 +745,8 @@ function(input, output, session) {
       testIfNewRender <- which(!(newRender %in% displayActive$lockedSelections))
       if(length(testIfNewRender)>0)
       {
-        
-        displayActive$activeSelections <- tail(append(newRender[testIfNewRender],
-                                                      displayActive$lockedSelections),plotLim)
-        if(length(input$hashComparison_rows_selected)!=length(displayActive$activeSelections))
-        {
-          selectRows(proxyHashComparison,
-                     selected=input$hashComparison_rows_selected[
-                       -which(!(hashRow$names[sessionStorage$permutation[input$hashComparison_rows_selected]] %in%
-                              displayActive$activeSelections)) ])
-        }
+        displayActive$activeSelections <- head(append(displayActive$lockedSelections,
+                                                      newRender[testIfNewRender]),plotLim)
       }
     }
   })
@@ -873,11 +772,6 @@ function(input, output, session) {
           removeIndex <- which(displayActive$activeSelections==selection)
           if(length(removeIndex)>0)
           {
-            selectRows(proxyHashComparison,
-                       selected=input$hashComparison_rows_selected[
-                         -which(hashRow$names[sessionStorage$permutation[input$hashComparison_rows_selected]] ==
-                                  displayActive$activeSelections[removeIndex])])
-            
             print(c(removeIndex,displayActive$activeSelections[removeIndex]))
             displayActive$activeSelections <- displayActive$activeSelections[-removeIndex]
             #displayActive$activeSelections[removeIndex] <- NULL
@@ -900,12 +794,6 @@ function(input, output, session) {
         if(length(removeIndex)>0)
         {
           prepRemoval(imageName,readyToRemove,selection)
-          selectRows(proxyHashComparison,
-                     selected=input$hashComparison_rows_selected[
-                       -which(hashRow$names[sessionStorage$permutation[input$hashComparison_rows_selected]] ==
-                                displayActive$activeSelections[removeIndex])])
-          
-          print(c(removeIndex,displayActive$activeSelections[removeIndex]))
         }
       }
     })
