@@ -159,7 +159,7 @@ traceFromImage <- function(fin,
   
   #### --- Highlight Trailing Edge --- ####
   
-  netIn <- resize(fin,size_x = 100,size_y = 80,interpolation_type = 2)
+  netIn <- resize(fin,size_x = 120,size_y = 100,interpolation_type = 2)
   estHighlight <- threshold(netIn,.97)
   
   cropRot <- dilate_square((netIn==0.0),5) | dilate_square((netIn==1.0),3)
@@ -176,15 +176,16 @@ traceFromImage <- function(fin,
   netIn <- as.array(netIn)
   
   #plot(as.cimg(netIn))
-  netOutResizeFactors <- c(dim(fin)[1]/100,dim(fin)[2]/80)
-  netIn <- append(netIn,netIn[100:1,,,])
+  netOutResizeFactors <- c(dim(fin)[1]/120,dim(fin)[2]/100)
+  netIn <- append(netIn,netIn[120:1,,,])
   
-  dim(netIn) <- c(100,80,3,2)
+  dim(netIn) <- c(120,100,3,2)
   
   netOut <- mxnet:::predict.MXFeedForwardModel(X=netIn,model=pathNet,ctx=mxnet::mx.cpu(),array.layout = "colmajor")
-  dim(netOut) <- c(100,80,2)
-  netOut <- parmax(list(as.cimg(netOut[,,1]),as.cimg(netOut[100:1,,2])))
-  browser()
+  
+  dim(netOut) <- c(120,100,2)
+  netOut <- parmax(list(as.cimg(netOut[,,1]),as.cimg(netOut[120:1,,2])))
+  
   # --- if no fin found
   #plot(netOut>.5)
   if(!any(netOut>=.4)){print("No fin found");return(list(NULL,NULL))}

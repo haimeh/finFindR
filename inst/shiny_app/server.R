@@ -14,10 +14,9 @@ appScripts <- system.file("shiny_app", package="finFindR")
 sapply(list.files(path=appScripts,pattern="*_serverside.R",full.names = T),source,.GlobalEnv)
 
 networks <- system.file("extdata", package="finFindR")
-pathNet <- mxnet::mx.model.load(file.path(networks,'tracePath128'), 0020)
+pathNet <- mxnet::mx.model.load(file.path(networks,'finTracerFinal'), 0100)
+cropNet <- mxnet::mx.model.load(file.path(networks,'finLocalizerfinal'), 340)
 mxnetModel <- mxnet::mx.model.load(file.path(networks,'fin_triplet32_4096_final'), 5600)
-cropNet <- mxnet::mx.model.load(file.path(networks,'cropperInit'), 940)
-
 
 
 
@@ -493,6 +492,7 @@ function(input, output, session) {
                       ordering=F, 
                       paging = T,
                       scrollY = "500px",
+                      scrollX = "750px",
                       pageLength = 1000, lengthMenu = list('500', '1000','2000', '10000'))
   #columnDefs = list(list(targets = c(1:50), searchable = FALSE))
   output$matchName <- DT::renderDataTable({
@@ -692,7 +692,7 @@ function(input, output, session) {
                  traceBatchDone$count,
                  rankTable$editCount), {
                    
-                   if(length(sessionReference$hashData)>0 || length(sessionQuery$hashData)>0)
+                   if((length(sessionReference$hashData)+length(sessionQuery$hashData))>1)
                    {
                      sessionStorage$permutation <- NULL
                      
