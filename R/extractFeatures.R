@@ -159,7 +159,7 @@ traceFromImage <- function(fin,
   
   #### --- Highlight Trailing Edge --- ####
   
-  netIn <- resize(fin,size_x = 120,size_y = 100,interpolation_type = 2)
+  netIn <- resize(fin,size_x = 132,size_y = 110,interpolation_type = 2)
   estHighlight <- threshold(netIn,.97)
   
   cropRot <- dilate_square((netIn==0.0),5) | dilate_square((netIn==1.0),3)
@@ -176,21 +176,22 @@ traceFromImage <- function(fin,
   netIn <- as.array(netIn)
   
   #plot(as.cimg(netIn))
-  netOutResizeFactors <- c(dim(fin)[1]/120,dim(fin)[2]/100)
-  netIn <- append(netIn,netIn[120:1,,,])
+  netOutResizeFactors <- c(dim(fin)[1]/132,dim(fin)[2]/110)
+  netIn <- append(netIn,netIn[132:1,,,])
   
-  dim(netIn) <- c(120,100,3,2)
+  dim(netIn) <- c(132,110,3,2)
   
   netOut <- mxnet:::predict.MXFeedForwardModel(X=netIn,model=pathNet,ctx=mxnet::mx.cpu(),array.layout = "colmajor")
   
-  dim(netOut) <- c(120,100,2)
-  netOut <- parmax(list(as.cimg(netOut[,,1]),as.cimg(netOut[120:1,,2])))
+  dim(netOut) <- c(132,110,2)
+  netOut <- parmax(list(as.cimg(netOut[,,1]),as.cimg(netOut[132:1,,2])))
+  # plot(as.cimg(netOut))
+  # browser()
   
   # --- if no fin found
-  #plot(netOut>.5)
-  if(!any(netOut>=.4)){print("No fin found");return(list(NULL,NULL))}
+  if(!any(netOut>=.35)){print("No fin found");return(list(NULL,NULL))}
   
-  netblb <- label(netOut>.4,high_connectivity = TRUE)
+  netblb <- label(netOut>.35,high_connectivity = TRUE)
   counts <- table(netblb)
   initBlobIndex <- as.integer(names(which(counts<=5)))
   netblb[which(netblb %in% initBlobIndex)] <- 0
@@ -400,7 +401,7 @@ traceFromImage <- function(fin,
     #blobFilter <- resize(dilate_square(netOut,3),size_x = width(fin) , size_y = height(fin),interpolation_type = 2)/max(netOut)
     #splitBlobs <- ( (netOut/max(netOut))>.5 )
     
-    netBlobOri <- dilate_rect( ((netOut/max(netOut))>.4) ,sx=3,sy=3)
+    netBlobOri <- dilate_rect( ((netOut/max(netOut))>.35) ,sx=3,sy=3)
     
     netBlobOri[1,,,] <- 0
     netBlobOri[,1,,] <- 0
