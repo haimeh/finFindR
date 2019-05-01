@@ -1,2 +1,2 @@
 PKG_LIBS += -lgdiplus
-LDFLAGS += -lpthread -lX11 
+LDFLAGS += -L/usr/X11R6/lib -lm -lpthread -lX11
