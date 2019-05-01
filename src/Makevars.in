@@ -1,1 +1,2 @@
-PKG_LIBS += -lgdiplus -lpthread -lX11 
+PKG_LIBS += -lgdiplus
+LDFLAGS += -lpthread -lX11 
