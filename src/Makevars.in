@@ -1,2 +1,3 @@
 PKG_LIBS += -lgdiplus
 LDFLAGS += -L/usr/X11R6/lib -lm -lpthread -lX11
+CXXFLAGS += -Dcimg_display=0
