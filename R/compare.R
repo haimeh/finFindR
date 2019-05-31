@@ -1,7 +1,7 @@
 #' An S4 class to wrap mx.io.arrayiter for use in finFindR
 #'
-#' @method initialize generates an mx.io.arrayiter
-#' @method value called from mxnet predict method to process data
+#' initialize generates an mx.io.arrayiter
+#' value called from mxnet predict method to process data
 
 finIter <- setRefClass("finIter",
                        
@@ -97,7 +97,7 @@ distanceToRef <- function(queryHash,
   if(length(referenceHash)>0 && !is.null(queryHash))
   {
     diff <- apply(referenceHash,2,
-                  function(x,queryHash)  xdf
+                  function(x,queryHash)
                   {
                     distance <- sqrt(sum((as.numeric(x)-as.numeric(queryHash))^2))
                     return(if(!is.nan(distance)){distance}else{0})
