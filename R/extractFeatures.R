@@ -145,12 +145,15 @@ traceFromCannyEdges <- function(pathMap,
 #' @param fin Value of type cimg. Load the image via load.image("directory/finImage.JPG")
 #' @param startStopCoords list of 3 coordinates: leadingEnd, startPoint, trailingEnd. If NULL, these points are estimated
 #' @param pathNet mxnet model for isolating trailing edge
-#' @return Value of type list containing  a dataframe of coordinates and a cimg of simplified features
+#' @return Value of type list containing:
+#' "coordinates" a dataframe of coordinates
+#' "annulus" a 3 channel cimg of isolated features
 #' @export
 traceFromImage <- function(fin,
                            startStopCoords = NULL,
                            pathNet = NULL)
 {
+  if(is.null(pathNet))(pathNet <- mxnet::mx.model.load(file.path(system.file("extdata", package="finFindR"),'tracePath128'), 20))
   if(!is.cimg(fin)){stop("fin must be Jpeg of type cimg")}
   if(!("MXFeedForwardModel" %in% class(pathNet))){stop("network must be of class MXFeedForwardModel")}
   

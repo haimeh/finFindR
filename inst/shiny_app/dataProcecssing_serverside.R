@@ -22,80 +22,6 @@ getImgNames <- function(directory,
   return(imgs)
 }
 
-finIter <- setRefClass("finIter",
-                       
-                       fields=c("data",
-                                "iter",
-                                "data.shape"),
-                       
-                       contains = "Rcpp_MXArrayDataIter",
-                       
-                       methods=list(
-                         initialize=function(iter=NULL,
-                                             data,
-                                             data.shape){
-                           
-                           data_len <- prod(data.shape)
-                           print(dim(data))
-                           array_iter <- mx.io.arrayiter(data,
-                                                         label=rep(0,ncol(data)),
-                                                         batch.size=min(ncol(data),128))
-                           
-                           .self$iter <- array_iter
-                           
-                           .self$data.shape <- data.shape
-                           
-                           .self
-                         },
-                         
-                         value=function(){
-                           val.x <- as.array(.self$iter$value()$data)
-                           val.x[is.na(val.x) | is.nan(val.x) | is.infinite(val.x)]<-(.5)
-                           dim(val.x) <- c(data.shape,16,3,ncol(val.x))
-                           
-                           list(data=mx.nd.array(val.x))
-                         },
-                         
-                         iter.next=function(){
-                           .self$iter$iter.next()
-                         },
-                         reset=function(){
-                           .self$iter$reset()
-                         },
-                         num.pad=function(){
-                           .self$iter$num.pad()
-                         },
-                         finalize=function(){
-                           .self$iter$finalize()
-                         }
-                       )
-)
-
-traceToHash <- function(traceData,
-                        mxnetModel)
-{
-  iterInputFormat <- sapply(traceData,function(x){as.numeric(resize(x,size_x = 300,interpolation_type = 6))})
-  dataIter <- finIter$new(data = iterInputFormat,
-                          data.shape = 300)
-  print("embed")
-  netEmbedding <- mxnet:::predict.MXFeedForwardModel(mxnetModel,
-                                                     dataIter,
-                                                     array.layout = "colmajor",
-                                                     ctx= mx.cpu(),
-                                                     allow.extra.params=T)
-  rm(dataIter)
-  gc()
-  #dim(netEmbedding) <- c(32,length(traceData),2)
-  #netEmbedding <- apply(netEmbedding, 1:2, mean)
-  
-  print("NeuralNet embedding complete")
-  hashList <- lapply(seq_len(ncol(netEmbedding)), function(i) netEmbedding[,i])
-  print("listified")
-  print(names(traceData))
-  names(hashList) <- names(traceData)
-  print("labeled")
-  return(hashList)
-}
 
 cropDirectory <- function(searchDirectory,
                           saveDirectory,
@@ -243,28 +169,11 @@ topMatchPerClass <- function(table,
   }
 }
 
-distanceToRef <- function(queryHash,
-                          referenceHash)
-{
-  if(length(referenceHash)>0 && !is.null(queryHash))
-  {
-    diff <- apply(referenceHash,2,
-                 function(x,queryHash)
-                 {
-                   distance <- sqrt(sum((as.numeric(x)-as.numeric(queryHash))^2))
-                   return(if(!is.nan(distance)){distance}else{0})
-                 },queryHash=queryHash)
-    return(diff)
-  }
-}
-
-
 
 calculateRankTable <- function(rankTable,
                                sessionQuery,
                                sessionReference)
 {
-
   counterEnvir <- new.env()
   counterEnvir$progressTicker <- 0
   counterEnvir$reactiveDomain <- getDefaultReactiveDomain()
@@ -274,48 +183,10 @@ calculateRankTable <- function(rankTable,
   withProgress(
     message = 'Matching', value = 0, session = counterEnvir$reactiveDomain,
     {
-      fullQueryIndeces <- seq_len(length(sessionQuery$hashData))
-      queryChunkIndex <- split(fullQueryIndeces, ceiling(seq_along(fullQueryIndeces)/500))
-      chunkListIndex <- 1
-      mxdistanceChunks <- list()
-      
-      referenceArray <- mx.nd.expand.dims(data=mx.nd.transpose(
-        mx.nd.array(data.matrix(data.frame(sessionReference$hashData)))), axis=2)
-      
-      for(index in queryChunkIndex)
-      {
-        queryArrayChunk <- mx.nd.expand.dims(data=mx.nd.transpose(
-          mx.nd.array(data.matrix(data.frame(sessionQuery$hashData[index])))), axis=1)
-        
-        mxdistanceChunks[[chunkListIndex]] <- mx.nd.sqrt(
-          mx.nd.nansum(
-            mx.nd.square(
-              mx.nd.broadcast.sub(
-                lhs = queryArrayChunk,
-                rhs = referenceArray
-              )
-            ),axis = 0
-          )
-        )
-        rm(queryChunk)
-        gc()
-        
-        chunkListIndex = chunkListIndex+1
-        counterEnvir$progressTicker = counterEnvir$progressTicker+length(index)
-        incProgress(length(index)/counterEnvir$length,
-                    detail = paste(counterEnvir$progressTicker,"of",counterEnvir$length),
-                    session = counterEnvir$reactiveDomain)
-        
-      }
-      mxdistances <-  mx.nd.concat(mxdistanceChunks,dim = 1)
-      
-      #clear the nd arrays
-      rm(mxdistanceChunks,referenceArray)
-      gc()
-      
-      sortingIndex <- as.data.frame(as.array(mx.nd.transpose(mx.nd.argsort(mxdistances,axis = 0)+1)))
-      #sortingIndex <- mx.nd.transpose(mx.nd.argsort(mxdistances,axis = 0))
-      distances <- as.data.frame(as.array(mxdistances))
+      comparisonResults <- distanceToRefParallel(sessionQuery$hashData,
+                                                 sessionReference$hashData,
+                                                 counterEnvir,
+                                                 displayProgressInShiny=T)
       incProgress(0,
                   detail = paste("Matching Complete"),
                   session = counterEnvir$reactiveDomain)
@@ -328,12 +199,12 @@ calculateRankTable <- function(rankTable,
         rownames <- paste(names(sessionQuery$hashData),":",sessionQuery$idData)
         
         incProgress(0,detail=paste("file locations"))
-        rankTable$Name <- apply(sortingIndex,1,function(x)names(sessionReference$idData)[x])
+        rankTable$Name <- apply(comparisonResults$sortingIndex,1,function(x)names(sessionReference$idData)[x])
         simpleNamesVec <- basename(names(sessionReference$idData))
         incProgress(1/8)
-        rankTable$NameSimple <- apply(sortingIndex,1,function(x)simpleNamesVec[x])
+        rankTable$NameSimple <- apply(comparisonResults$sortingIndex,1,function(x)simpleNamesVec[x])
         # single queries need to be turned back from vectors
-        if(nrow(distances)<=1)
+        if(nrow(comparisonResults$distances)<=1)
         {
           rankTable$Name <- as.data.frame(t(rankTable$Name))
           rankTable$NameSimple <- as.data.frame(t(rankTable$NameSimple))
@@ -342,9 +213,9 @@ calculateRankTable <- function(rankTable,
         rownames(rankTable$NameSimple) <- rownames
         
         incProgress(1/8,detail=paste("IDs"))
-        rankTable$ID <- apply(sortingIndex,1,function(x)sessionReference$idData[x])
+        rankTable$ID <- apply(comparisonResults$sortingIndex,1,function(x)sessionReference$idData[x])
         # single queries need to be turned back from vectors
-        if(nrow(distances)<=1){rankTable$ID <- as.data.frame(t(rankTable$ID))}
+        if(nrow(comparisonResults$distances)<=1){rankTable$ID <- as.data.frame(t(rankTable$ID))}
         rownames(rankTable$ID) <- rownames
         
         incProgress(1/4,detail=paste("extracting top class matches"))
@@ -352,7 +223,7 @@ calculateRankTable <- function(rankTable,
         rownames(rankTable$Unique) <- rownames
         
         incProgress(1/4,detail=paste("distance"))
-        rankTable$Distance <- t(apply(distances,1,function(x)sort(x,decreasing = F)))
+        rankTable$Distance <- t(apply(comparisonResults$distances,1,function(x)sort(x,decreasing = F)))
         rownames(rankTable$Distance) <- rownames
         incProgress(1/4,detail=paste("Done"))
       })
