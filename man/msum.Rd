@@ -17,3 +17,4 @@ smoothed sequence
 \description{
 helper function for smoothing a sequence
 }
+

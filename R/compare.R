@@ -8,7 +8,8 @@ finIter <- setRefClass("finIter",
                        fields=c("data",
                                 "iter",
                                 "data.shape"),
-                       
+                       #inheritPackage = T,
+                       #where = "mxnet",
                        contains = "Rcpp_MXArrayDataIter",
                        
                        methods=list(
@@ -91,6 +92,7 @@ traceToHash <- function(traceData,
 #' @description Function to calculate the distances from a single query hash to a reference catalogue
 #' @param queryHashData vector containing a hash for matching
 #' @param referenceHashData matrix containing a reference catalogue of hashes
+#' @export 
 distanceToRef <- function(queryHash,
                           referenceHash)
 {

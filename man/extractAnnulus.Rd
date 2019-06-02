@@ -20,3 +20,4 @@ Features represent 16 point ring from around each coordinate
 The x component in the returned cimg represents each coordinate
 The y component from the returned cimg represents each sample from the 16 point ring
 }
+

@@ -19,3 +19,4 @@ Using a smoothing kernel, highlights are filled in based on the neighboring valu
 Iteratively fills in from outer edge inward.
 Image should have glare cliped to 0 already
 }
+

@@ -24,3 +24,4 @@ Starting with a weighted canny edge matrix and start/stop points, an optimal pat
 \code{findPath}
 After some basic cleanup, the resulting pixel coordinates for the optimal edge trace are returned.
 }
+

@@ -16,3 +16,4 @@ Value of type list containing a scalar resize factor and a resized cimg
 Processes an image(cimg) containing a fin. 
 constrains image to a size range that balances preserving detail and efficiency
 }
+

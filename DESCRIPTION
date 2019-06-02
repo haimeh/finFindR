@@ -5,8 +5,12 @@ Version: 1.0
 Date: 2018-02-03
 Author: Jaime Thompson
 Maintainer: Jaime Thompson <jwthompson@west-inc.com>
-Description: Core functions for extracting distinguishing features from dorsal fin images.
+Description: Core functions for extracting distinguishing features from dorsal
+    fin images.
 License: GPL (>= 2)
-Imports: Rcpp, imager, mxnet
+Imports:
+    Rcpp,
+    imager,
+    mxnet
 LinkingTo: Rcpp, imager
-RoxygenNote: 6.1.1
+RoxygenNote: 5.0.1

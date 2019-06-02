@@ -21,3 +21,4 @@ the canny edges are calculated,
 defined as the points in the gradient magnitude map that are 
 greater than the 4(of the 8 posible) neighbors, orthogonal to the estimated angle
 }
+

@@ -5,7 +5,7 @@
 \title{cropFins}
 \usage{
 cropFins(imageName, cropNet, workingImage, saveDir, minXY = 100, target = 1,
-  threshold = 0.45)
+  threshold = 0.45, dim = c(225, 150, 3, 1))
 }
 \arguments{
 \item{imageName}{path to image to be cropped}
@@ -30,3 +30,4 @@ the x,y range for each excitation on the matrix is found.
 The range is then rescaled to find the analogous region in the original image.
 This region is cropped from said image and saved as a jpeg to the given directory.
 }
+

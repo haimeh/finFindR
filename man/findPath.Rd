@@ -32,3 +32,4 @@ This function returns a NumeriMatrix, identifying the optimal edge
 Using the A* algorithm on a canny edge matrix weighted by a neural network
 The traversal balances clarity/smoothness of the edge against the network evaluation
 }
+

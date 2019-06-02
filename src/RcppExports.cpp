@@ -2,6 +2,7 @@
 // Generator token: 10BE3573-1514-4C36-9D1C-5A225CD40393
 
 #include <Rcpp.h>
+
 using namespace Rcpp;
 
 // findPath
@@ -62,7 +63,6 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-
 
 static const R_CallMethodDef CallEntries[] = {
     {"_finFindR_findPath", (DL_FUNC) &_finFindR_findPath, 10},
