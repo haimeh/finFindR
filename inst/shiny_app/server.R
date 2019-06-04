@@ -1,6 +1,5 @@
 library("shiny")
 library("DT")
-library("mxnet")
 library("imager")
 library("finFindR")
 
@@ -267,7 +266,6 @@ function(input, output, session) {
         withProgress(message = 'Retracing', value = .5,
                      detail = paste(readyToRetrace$imgName),
                      {
-                       
                        traceResults <- try(traceFromImage(load.image(file.path(readyToRetrace$directory,
                                                                                readyToRetrace$imgName)),
                                                           startStopPoints,

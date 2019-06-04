@@ -57,6 +57,7 @@ saveRetrace <- function(readyToRetrace,
 {
   if(length(readyToRetrace$traceResults)>0)
   {
+    print("prep trace")
     targetEnvir$traceData[readyToRetrace$imgName] <-  list(readyToRetrace$traceResults$coordinates)
     targetEnvir$hashData[readyToRetrace$imgName] <-  list(traceToHash( list(readyToRetrace$traceResults$annulus ), mxnetModel ))
     print("retrace hash calculated")

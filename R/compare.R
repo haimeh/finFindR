@@ -1,9 +1,3 @@
-##' An S4 class to wrap mx.io.arrayiter for use in finFindR
-##'
-##' initialize generates an mx.io.arrayiter
-##' value called from mxnet predict method to process data
-
-
 #' @title traceToHash 
 #' @description Function which takes the output of \code{traceFromImage} and returns objects used for matching
 #' @return Value of type list containing:
@@ -12,42 +6,44 @@
 traceToHash <- function(traceData,
                         mxnetModel = NULL)
 {
-  require("mxnet")
+  #browser()
+  finIter <- try(getRefClass("finIter"))
+  if(class(finIter) == "try-error")
+  {
   finIter <- setRefClass("finIter",
-                         
+
                          fields=c("data",
                                   "iter",
                                   "data.shape"),
                          #inheritPackage = T,
                          #where = "mxnet",
                          contains = "Rcpp_MXArrayDataIter",
-                         
+
                          methods=list(
                            initialize=function(iter=NULL,
                                                data,
                                                data.shape){
-                             require("mxnet")
                              data_len <- prod(data.shape)
                              print(paste0("shp:",data.shape))
                              array_iter <- mx.io.arrayiter(data,
                                                            label=rep(0,ncol(data)),
                                                            batch.size=min(ncol(data),128))
-                             
+
                              .self$iter <- array_iter
-                             
+
                              .self$data.shape <- data.shape
-                             
+
                              .self
                            },
-                           
+
                            value=function(){
                              val.x <- as.array(.self$iter$value()$data)
                              val.x[is.na(val.x) | is.nan(val.x) | is.infinite(val.x)]<-(.5)
                              dim(val.x) <- c(data.shape,16,3,ncol(val.x))
-                             
+
                              list(data=mx.nd.array(val.x))
                            },
-                           
+
                            iter.next=function(){
                              .self$iter$iter.next()
                            },
@@ -62,10 +58,12 @@ traceToHash <- function(traceData,
                            }
                          )
   )
+  }
   if (is.null(mxnetModel))
   {
     mxnetModel <- mxnet::mx.model.load(file.path( system.file("extdata", package="finFindR"),'fin_triplet32_4096_final'), 5600)
   }
+  print("iter")
   iterInputFormat <- sapply(traceData,function(x){as.numeric(resize(x,size_x = 300,interpolation_type = 6))})
   dataIter <- finIter$new(data = iterInputFormat,
                           data.shape = 300)
