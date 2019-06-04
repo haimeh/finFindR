@@ -14,4 +14,10 @@ Value of type list containing:
 \description{
 Function which takes the output of \code{traceFromImage} and returns objects used for matching
 }
+\details{
+An S4 class to wrap mx.io.arrayiter for use in finFindR
+
+initialize generates an mx.io.arrayiter
+value called from mxnet predict method to process data
+}
 

@@ -20,7 +20,7 @@ Value of type list containing:
 }
 \details{
 \code{traceFromImage} wrapper for use through opencpu.
-opencpu passes temp object name to function
+opencpu passes temp object name to function followed by \code{traceToHash}
 curl -v http://server:port/ocpu/library/finFindR/R/traceFinFromHttp -F "imageobj=[@yourfile1.jpg,@yourfile2.jpg]"
 aka: traceFinFromHttp(imageobj = list("yourfile1.jpg","yourfile2.jpg"))
 

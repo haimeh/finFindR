@@ -1,57 +1,8 @@
-#' An S4 class to wrap mx.io.arrayiter for use in finFindR
-#'
-#' initialize generates an mx.io.arrayiter
-#' value called from mxnet predict method to process data
+##' An S4 class to wrap mx.io.arrayiter for use in finFindR
+##'
+##' initialize generates an mx.io.arrayiter
+##' value called from mxnet predict method to process data
 
-finIter <- setRefClass("finIter",
-                       
-                       fields=c("data",
-                                "iter",
-                                "data.shape"),
-                       #inheritPackage = T,
-                       #where = "mxnet",
-                       contains = "Rcpp_MXArrayDataIter",
-                       
-                       methods=list(
-                         initialize=function(iter=NULL,
-                                             data,
-                                             data.shape){
-                           
-                           data_len <- prod(data.shape)
-                           print(dim(data))
-                           array_iter <- mx.io.arrayiter(data,
-                                                         label=rep(0,ncol(data)),
-                                                         batch.size=min(ncol(data),128))
-                           
-                           .self$iter <- array_iter
-                           
-                           .self$data.shape <- data.shape
-                           
-                           .self
-                         },
-                         
-                         value=function(){
-                           val.x <- as.array(.self$iter$value()$data)
-                           val.x[is.na(val.x) | is.nan(val.x) | is.infinite(val.x)]<-(.5)
-                           dim(val.x) <- c(data.shape,16,3,ncol(val.x))
-                           
-                           list(data=mx.nd.array(val.x))
-                         },
-                         
-                         iter.next=function(){
-                           .self$iter$iter.next()
-                         },
-                         reset=function(){
-                           .self$iter$reset()
-                         },
-                         num.pad=function(){
-                           .self$iter$num.pad()
-                         },
-                         finalize=function(){
-                           .self$iter$finalize()
-                         }
-                       )
-)
 
 #' @title traceToHash 
 #' @description Function which takes the output of \code{traceFromImage} and returns objects used for matching
@@ -61,6 +12,56 @@ finIter <- setRefClass("finIter",
 traceToHash <- function(traceData,
                         mxnetModel = NULL)
 {
+  require("mxnet")
+  finIter <- setRefClass("finIter",
+                         
+                         fields=c("data",
+                                  "iter",
+                                  "data.shape"),
+                         #inheritPackage = T,
+                         #where = "mxnet",
+                         contains = "Rcpp_MXArrayDataIter",
+                         
+                         methods=list(
+                           initialize=function(iter=NULL,
+                                               data,
+                                               data.shape){
+                             require("mxnet")
+                             data_len <- prod(data.shape)
+                             print(paste0("shp:",data.shape))
+                             array_iter <- mx.io.arrayiter(data,
+                                                           label=rep(0,ncol(data)),
+                                                           batch.size=min(ncol(data),128))
+                             
+                             .self$iter <- array_iter
+                             
+                             .self$data.shape <- data.shape
+                             
+                             .self
+                           },
+                           
+                           value=function(){
+                             val.x <- as.array(.self$iter$value()$data)
+                             val.x[is.na(val.x) | is.nan(val.x) | is.infinite(val.x)]<-(.5)
+                             dim(val.x) <- c(data.shape,16,3,ncol(val.x))
+                             
+                             list(data=mx.nd.array(val.x))
+                           },
+                           
+                           iter.next=function(){
+                             .self$iter$iter.next()
+                           },
+                           reset=function(){
+                             .self$iter$reset()
+                           },
+                           num.pad=function(){
+                             .self$iter$num.pad()
+                           },
+                           finalize=function(){
+                             .self$iter$finalize()
+                           }
+                         )
+  )
   if (is.null(mxnetModel))
   {
     mxnetModel <- mxnet::mx.model.load(file.path( system.file("extdata", package="finFindR"),'fin_triplet32_4096_final'), 5600)
@@ -69,11 +70,16 @@ traceToHash <- function(traceData,
   dataIter <- finIter$new(data = iterInputFormat,
                           data.shape = 300)
   print("embed")
+  is.mx.dataiter <- function(x) {
+      any(is(x, "Rcpp_MXNativeDataIter") || is(x, "Rcpp_MXArrayDataIter"))
+  }
+  
   netEmbedding <- mxnet:::predict.MXFeedForwardModel(mxnetModel,
                                                      dataIter,
                                                      array.layout = "colmajor",
                                                      ctx= mx.cpu(),
                                                      allow.extra.params=T)
+
   rm(dataIter)
   gc()
   #dim(netEmbedding) <- c(32,length(traceData),2)
@@ -130,6 +136,7 @@ distanceToRef <- function(queryHash,
 distanceToRefParallel <- function(queryHashData,
                                   referenceHashData,
                                   batchSize = 500,
+                                  returnLimit = min(100,length(referenceHashData)),
                                   counterEnvir=new.env(),
                                   displayProgressInShiny=F)
 {
@@ -137,6 +144,7 @@ distanceToRefParallel <- function(queryHashData,
   queryChunkIndex <- split(fullQueryIndeces, ceiling(seq_along(fullQueryIndeces)/batchSize))
   chunkListIndex <- 1
   mxdistanceChunks <- list()
+  sortingIndexChunks <- list()
   
   referenceArray <- mx.nd.expand.dims(data=mx.nd.transpose(
     mx.nd.array(data.matrix(data.frame(referenceHashData)))), axis=2)
@@ -146,7 +154,7 @@ distanceToRefParallel <- function(queryHashData,
     queryArrayChunk <- mx.nd.expand.dims(data=mx.nd.transpose(
       mx.nd.array(data.matrix(data.frame(queryHashData[index])))), axis=1)
     
-    mxdistanceChunks[[chunkListIndex]] <- mx.nd.sqrt(
+    mxdistance <- mx.nd.sqrt(
       mx.nd.nansum(
         mx.nd.square(
           mx.nd.broadcast.sub(
@@ -156,7 +164,14 @@ distanceToRefParallel <- function(queryHashData,
         ),axis = 0
       )
     )
-    rm(queryChunk)
+    
+    
+    # browser()
+    sortingIndexChunks[[chunkListIndex]] <- mx.nd.take(mx.nd.argsort(mxdistance,axis = 0)+1,mx.nd.array(0:(returnLimit-1)),axis=0)
+    mxdistanceChunks[[chunkListIndex]] <- mx.nd.topk(mxdistance,k=returnLimit,axis = 0,is_ascend = T,ret_typ = 'value')
+    
+    
+    rm(queryArrayChunk,mxdistance)
     gc()
     
     chunkListIndex = chunkListIndex+1
@@ -164,20 +179,22 @@ distanceToRefParallel <- function(queryHashData,
     
     if(displayProgressInShiny)
     {
-    incProgress(length(index)/counterEnvir$length,
-                detail = paste(counterEnvir$progressTicker,"of",counterEnvir$length),
-                session = counterEnvir$reactiveDomain)
+      incProgress(length(index)/counterEnvir$length,
+                  detail = paste(counterEnvir$progressTicker,"of",counterEnvir$length),
+                  session = counterEnvir$reactiveDomain)
     }
   }
   mxdistances <-  mx.nd.concat(mxdistanceChunks,dim = 1)
+  mxsortingIndex <-  mx.nd.concat(sortingIndexChunks,dim = 1)
   
-  #clear the nd arrays
-  rm(mxdistanceChunks,referenceArray)
-  gc()
   
-  sortingIndex <- as.data.frame(as.array(mx.nd.transpose(mx.nd.argsort(mxdistances,axis = 0)+1)))
-  #sortingIndex <- mx.nd.transpose(mx.nd.argsort(mxdistances,axis = 0))
+  # sortingIndex <- as.data.frame(as.array(mx.nd.transpose(mx.nd.argsort(mxdistances,axis = 0)+1)))
+  
   distances <- as.data.frame(as.array(mxdistances))
+  sortingIndex <- as.data.frame(as.array(mx.nd.transpose(mxsortingIndex)))
+  #clear the nd arrays
+  rm(mxdistanceChunks,mxdistances,sortingIndexChunks,mxsortingIndex,referenceArray)
+  gc()
   return(list(distances=distances,sortingIndex=sortingIndex))
 }
 

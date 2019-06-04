@@ -66,7 +66,8 @@ saveRetrace <- function(readyToRetrace,
     {
       newDistances <- distanceToRef( (unlist(targetEnvir$hashData[readyToRetrace$imgName])),
                                      data.frame(sessionReference$hashData))
-      newSortingIndex <- order(newDistances)
+      # make sure to clip to correct number of columns
+      newSortingIndex <- order(newDistances)[1:ncol(rankTable$Name)]
       
       rankTable$Name[readyToRetrace$rowName,] <- names(sessionReference$idData[newSortingIndex])
       rankTable$NameSimple[readyToRetrace$rowName,] <- basename(names(sessionReference$idData[newSortingIndex]))

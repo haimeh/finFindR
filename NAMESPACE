@@ -5,7 +5,7 @@ importFrom("graphics","plot","points")
 importFrom("stats","approx","filter","quantile","sd")
 importFrom("utils","head")
 import("imager")
-import("mxnet")
+
 export(constrainSizeFinImage)
 export(cropFins)
 export(distanceToRef)

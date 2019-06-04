@@ -153,7 +153,7 @@ traceFromImage <- function(fin,
                            startStopCoords = NULL,
                            pathNet = NULL)
 {
-  if(is.null(pathNet))(pathNet <- mxnet::mx.model.load(file.path(system.file("extdata", package="finFindR"),'tracePath128'), 20))
+  # if(is.null(pathNet))(pathNet <- mxnet::mx.model.load(file.path(system.file("extdata", package="finFindR"),'tracePath128'), 20))
   if(!is.cimg(fin)){stop("fin must be Jpeg of type cimg")}
   if(!("MXFeedForwardModel" %in% class(pathNet))){stop("network must be of class MXFeedForwardModel")}
   
@@ -183,7 +183,6 @@ traceFromImage <- function(fin,
   netIn <- append(netIn,netIn[132:1,,,])
   
   dim(netIn) <- c(132,110,3,2)
-  
   netOut <- mxnet:::predict.MXFeedForwardModel(X=netIn,model=pathNet,ctx=mxnet::mx.cpu(),array.layout = "colmajor")
   
   dim(netOut) <- c(132,110,2)

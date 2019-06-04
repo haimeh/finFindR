@@ -5,6 +5,7 @@
 \title{distanceToRefParallel}
 \usage{
 distanceToRefParallel(queryHashData, referenceHashData, batchSize = 500,
+  returnLimit = min(50, length(referenceHashData)),
   counterEnvir = new.env(), displayProgressInShiny = F)
 }
 \arguments{

@@ -183,9 +183,10 @@ calculateRankTable <- function(rankTable,
   withProgress(
     message = 'Matching', value = 0, session = counterEnvir$reactiveDomain,
     {
-      comparisonResults <- distanceToRefParallel(sessionQuery$hashData,
-                                                 sessionReference$hashData,
-                                                 counterEnvir,
+      comparisonResults <- distanceToRefParallel(queryHashData=sessionQuery$hashData,
+                                                 referenceHashData=sessionReference$hashData,
+                                                 counterEnvir=counterEnvir,
+                                                 batchSize = 500,
                                                  displayProgressInShiny=T)
       incProgress(0,
                   detail = paste("Matching Complete"),
@@ -196,6 +197,7 @@ calculateRankTable <- function(rankTable,
   {
     withProgress(
       message = 'Sorting', value = 0,{
+        # browser()
         rownames <- paste(names(sessionQuery$hashData),":",sessionQuery$idData)
         
         incProgress(0,detail=paste("file locations"))
@@ -223,10 +225,12 @@ calculateRankTable <- function(rankTable,
         rownames(rankTable$Unique) <- rownames
         
         incProgress(1/4,detail=paste("distance"))
-        rankTable$Distance <- t(apply(comparisonResults$distances,1,function(x)sort(x,decreasing = F)))
+        # rankTable$Distance <- t(apply(comparisonResults$distances,1,function(x)sort(x,decreasing = F)))
+        rankTable$Distance <- (comparisonResults$distances)
         rownames(rankTable$Distance) <- rownames
         incProgress(1/4,detail=paste("Done"))
       })
+    gc()
   }
 }
 # extractMetadata <- function(directory,saveEnvir)
