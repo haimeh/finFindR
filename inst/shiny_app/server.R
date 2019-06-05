@@ -171,6 +171,7 @@ function(input, output, session) {
        input$referenceDirectory != "" && 
        length(input$referenceDirectory)>0)
     {
+      gc()
       concat <- as.environment(as.list(sessionReference, all.names=TRUE))
       names(concat$hashData) <- basename(names(concat$hashData))
       names(concat$traceData) <- basename(names(concat$traceData))
@@ -179,6 +180,8 @@ function(input, output, session) {
       save(list = as.character(c("hashData","traceData","idData")),
            file=file.path(input$referenceDirectory,"finFindR.Rdata"),
            envir = concat)
+      rm(concat)
+      gc()
       showModal(modalDialog(
         title = paste("Concatenation Successful"),
         paste(input$referenceDirectory),

@@ -38,7 +38,7 @@ generateDisplayHeader <- function(instance,
       
       column(width = 3,checkboxInput(
         inputId = paste0("trace",instance),
-        label = "Trace",
+        label = "Show Trace",
         value = FALSE
       ))
     )
@@ -47,7 +47,7 @@ generateDisplayHeader <- function(instance,
       column(width = 4,
              checkboxInput(
                inputId = paste0("trace",instance),
-               label = "Trace",
+               label = "Show Trace",
                value = TRUE
              ))
     )

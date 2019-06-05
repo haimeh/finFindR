@@ -1,3 +1,53 @@
+# 
+# finIter <- setRefClass("finIter",
+#                          
+#                          fields=c("data",
+#                                   "iter",
+#                                   "data.shape"),
+#                          #inheritPackage = T,
+#                          #where = "mxnet",
+#                          contains = "Rcpp_MXArrayDataIter",
+#                          
+#                          methods=list(
+#                            initialize=function(iter=NULL,
+#                                                data,
+#                                                data.shape){
+#                              data_len <- prod(data.shape)
+#                              print(paste0("shp:",data.shape))
+#                              array_iter <- mx.io.arrayiter(data,
+#                                                            label=rep(0,ncol(data)),
+#                                                            batch.size=min(ncol(data),128))
+#                              
+#                              .self$iter <- array_iter
+#                              
+#                              .self$data.shape <- data.shape
+#                              
+#                              .self
+#                            },
+#                            
+#                            value=function(){
+#                              val.x <- as.array(.self$iter$value()$data)
+#                              val.x[is.na(val.x) | is.nan(val.x) | is.infinite(val.x)]<-(.5)
+#                              dim(val.x) <- c(data.shape,16,3,ncol(val.x))
+#                              
+#                              list(data=mx.nd.array(val.x))
+#                            },
+#                            
+#                            iter.next=function(){
+#                              .self$iter$iter.next()
+#                            },
+#                            reset=function(){
+#                              .self$iter$reset()
+#                            },
+#                            num.pad=function(){
+#                              .self$iter$num.pad()
+#                            },
+#                            finalize=function(){
+#                              .self$iter$finalize()
+#                            }
+#                          )
+# )
+
 #' @title traceToHash 
 #' @description Function which takes the output of \code{traceFromImage} and returns objects used for matching
 #' @return Value of type list containing:
@@ -7,64 +57,66 @@ traceToHash <- function(traceData,
                         mxnetModel = NULL)
 {
   #browser()
-  finIter <- try(getRefClass("finIter"))
-  if(class(finIter) == "try-error")
-  {
-  finIter <- setRefClass("finIter",
-
-                         fields=c("data",
-                                  "iter",
-                                  "data.shape"),
-                         #inheritPackage = T,
-                         #where = "mxnet",
-                         contains = "Rcpp_MXArrayDataIter",
-
-                         methods=list(
-                           initialize=function(iter=NULL,
-                                               data,
-                                               data.shape){
-                             data_len <- prod(data.shape)
-                             print(paste0("shp:",data.shape))
-                             array_iter <- mx.io.arrayiter(data,
-                                                           label=rep(0,ncol(data)),
-                                                           batch.size=min(ncol(data),128))
-
-                             .self$iter <- array_iter
-
-                             .self$data.shape <- data.shape
-
-                             .self
-                           },
-
-                           value=function(){
-                             val.x <- as.array(.self$iter$value()$data)
-                             val.x[is.na(val.x) | is.nan(val.x) | is.infinite(val.x)]<-(.5)
-                             dim(val.x) <- c(data.shape,16,3,ncol(val.x))
-
-                             list(data=mx.nd.array(val.x))
-                           },
-
-                           iter.next=function(){
-                             .self$iter$iter.next()
-                           },
-                           reset=function(){
-                             .self$iter$reset()
-                           },
-                           num.pad=function(){
-                             .self$iter$num.pad()
-                           },
-                           finalize=function(){
-                             .self$iter$finalize()
-                           }
-                         )
-  )
-  }
+  # finIter <- try(getRefClass("finIter",where = as.environment(".finFindREnv")))
+  # if(class(finIter) == "try-error")
+  # {
+  #   .finFindREnv$finIter <- setRefClass("finIter",
+  #                                                     
+  #                                                     fields=c("data",
+  #                                                              "iter",
+  #                                                              "data.shape"),
+  #                                                     #inheritPackage = T,
+  #                                                     #where = "mxnet",
+  #                                                     contains = "Rcpp_MXArrayDataIter",
+  #                                                     
+  #                                                     methods=list(
+  #                                                       initialize=function(iter=NULL,
+  #                                                                           data,
+  #                                                                           data.shape){
+  #                                                         data_len <- prod(data.shape)
+  #                                                         print(paste0("shp:",data.shape))
+  #                                                         array_iter <- mx.io.arrayiter(data,
+  #                                                                                       label=rep(0,ncol(data)),
+  #                                                                                       batch.size=min(ncol(data),128))
+  #                                                         
+  #                                                         .self$iter <- array_iter
+  #                                                         
+  #                                                         .self$data.shape <- data.shape
+  #                                                         
+  #                                                         .self
+  #                                                       },
+  #                                                       
+  #                                                       value=function(){
+  #                                                         val.x <- as.array(.self$iter$value()$data)
+  #                                                         val.x[is.na(val.x) | is.nan(val.x) | is.infinite(val.x)]<-(.5)
+  #                                                         dim(val.x) <- c(data.shape,16,3,ncol(val.x))
+  #                                                         
+  #                                                         list(data=mx.nd.array(val.x))
+  #                                                       },
+  #                                                       
+  #                                                       iter.next=function(){
+  #                                                         .self$iter$iter.next()
+  #                                                       },
+  #                                                       reset=function(){
+  #                                                         .self$iter$reset()
+  #                                                       },
+  #                                                       num.pad=function(){
+  #                                                         .self$iter$num.pad()
+  #                                                       },
+  #                                                       finalize=function(){
+  #                                                         .self$iter$finalize()
+  #                                                       }
+  #                                                     )
+  #   )
+  # }
+  finIter <- getRefClass("finIter",where = as.environment(".finFindREnv"))
   if (is.null(mxnetModel))
   {
     mxnetModel <- mxnet::mx.model.load(file.path( system.file("extdata", package="finFindR"),'fin_triplet32_4096_final'), 5600)
   }
   print("iter")
   iterInputFormat <- sapply(traceData,function(x){as.numeric(resize(x,size_x = 300,interpolation_type = 6))})
+  # browser()
   dataIter <- finIter$new(data = iterInputFormat,
                           data.shape = 300)
   print("embed")

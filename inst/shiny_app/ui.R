@@ -184,7 +184,7 @@ fluidPage(
                                     verbatimTextOutput("imageIDTableRef"),
                                     checkboxInput(
                                       inputId = "traceTableRef",
-                                      label = "Trace",
+                                      label = "Show Trace",
                                       value = FALSE
                                     ),
                                     plotOutput("imageTableRef")
