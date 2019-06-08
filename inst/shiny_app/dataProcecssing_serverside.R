@@ -117,7 +117,7 @@ processImageData <- function(directory,
          !is.null(unlist(traceResults)[[1]]))
       {
         traceImg <- append(traceImg,list(traceResults$annulus))
-        traceCoord <- append(traceCoord,list(traceResults$coordinates))
+        traceCoord <- append(traceCoord,list( encodePath(traceResults$coordinates) ))
         
         idData <- append(idData,"unlabeled")
       }else{

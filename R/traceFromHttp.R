@@ -26,15 +26,23 @@
 
 processFinFromHttp <- function(imageobj)
 {
+  if(class(imageobj)=="character")
+  {
+    traceResults <- traceFromImage(fin=load.image(imageobj),
+                                   startStopCoords = NULL,
+                                   pathNet = NULL)
+    return(as.data.frame(traceToHash(traceImg)))
+  }else{
   traceImg <- list()
   for (imageName in imageobj)
   {
-    traceResults <- traceFromImage(fin=load.image(imageobj),
+    traceResults <- traceFromImage(fin=load.image(imageName),
                    startStopCoords = NULL,
-                   pathNet = NULLs)
+                   pathNet = NULL)
     traceImg <- append(traceImg,list(traceResults$annulus))
+    
+    names(traceImg) <- as.character(imageobj)
+    return(as.data.frame(traceToHash(traceImg)))
   }
-  names(traceImg) <- as.character(imageobj)
-  return(as.data.frame(traceToHash(traceImg)))
 }
 

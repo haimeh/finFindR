@@ -8,6 +8,13 @@ plotFinTrace <- function(fin,coordinates,trace)
     {
       #dont forget to unlist coordinates
       coordinates <- coordinates[[1]]
+      if(class(coordinates) == "matrix")
+      {
+        print("uncompressed path")
+      }else{
+        print("decompressing coordinate path")
+        coordinates <- decodePath(coordinates)
+      }
       if(nrow(coordinates) > 0 && trace)
       {
         plot(fin, ann=FALSE, asp = 1, axes = FALSE)

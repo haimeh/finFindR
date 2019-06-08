@@ -285,7 +285,7 @@ function(input, output, session) {
                           length(unlist(traceResults)[[1]])>0 &&
                           !is.null(unlist(traceResults)[[1]]))
                        {
-                         plotsPanel[[readyToRetrace$panelID]]$coord <- list(traceResults$coordinates)
+                         plotsPanel[[readyToRetrace$panelID]]$coord <- list( encodePath(traceResults$coordinates) )
                          
                          incProgress(.25)
                          print("rendered")
