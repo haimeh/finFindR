@@ -7,8 +7,6 @@
                                       fields=c("data",
                                                "iter",
                                                "data.shape"),
-                                      #inheritPackage = T,
-                                      #where = "mxnet",
                                       contains = "Rcpp_MXArrayDataIter",
                                       
                                       methods=list(
@@ -51,5 +49,4 @@
                                       )
   )
   attach(what=.finFindREnv,name = ".finFindREnv")
-  #mxnet:::.onLoad("mxnet", "mxnet")
 }
