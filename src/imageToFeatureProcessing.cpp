@@ -1,4 +1,4 @@
-
+#define cimg_display 0
 // [[Rcpp::depends(imager)]]
 #include <imager.h>
 #include <vector>
