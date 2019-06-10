@@ -154,7 +154,7 @@ traceFromImage <- function(fin,
                            pathNet = NULL)
 {
   require("mxnet")
-  # if(is.null(pathNet))(pathNet <- mxnet::mx.model.load(file.path(system.file("extdata", package="finFindR"),'tracePath128'), 20))
+  if(is.null(pathNet))(pathNet <- mxnet::mx.model.load(file.path(system.file("extdata", package="finFindR"),'tracePath128'), 20))
   if(!is.cimg(fin)){stop("fin must be Jpeg of type cimg")}
   if(!("MXFeedForwardModel" %in% class(pathNet))){stop("network must be of class MXFeedForwardModel")}
   
