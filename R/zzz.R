@@ -1,6 +1,6 @@
 .onLoad <- function(libname,pkgname)
 {
-  library("mxnet")
+  require("mxnet")
   .finFindREnv <- new.env()
   .finFindREnv$finIter <- setRefClass("finIter",
                                       
