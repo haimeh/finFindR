@@ -13,8 +13,8 @@ appScripts <- system.file("shiny_app", package="finFindR")
 sapply(list.files(path=appScripts,pattern="*_serverside.R",full.names = T),source,.GlobalEnv)
 
 networks <- system.file("extdata", package="finFindR")
-pathNet <- mxnet::mx.model.load(file.path(networks,'tracePath128'), 20)
-cropNet <- mxnet::mx.model.load(file.path(networks,'cropperInit'), 940)
+pathNet <- mxnet::mx.model.load(file.path(networks,'tracePath128'), 21)
+cropNet <- mxnet::mx.model.load(file.path(networks,'cropperInit'), 941)
 mxnetModel <- mxnet::mx.model.load(file.path(networks,'fin_triplet32_4096_final'), 5600)
 
 

@@ -919,14 +919,9 @@
       "inputs": [[84, 0, 0], [85, 0, 0], [86, 0, 0]]
     }, 
     {
-      "op": "null", 
-      "name": "logisticregressionoutput28_label", 
-      "inputs": []
-    }, 
-    {
-      "op": "LogisticRegressionOutput", 
-      "name": "logisticregressionoutput28", 
-      "inputs": [[87, 0, 0], [88, 0, 0]]
+      "op": "sigmoid", 
+      "name": "logisticOutput", 
+      "inputs": [[87, 0, 0]]
     }
   ], 
   "arg_nodes": [
@@ -973,8 +968,7 @@
     78, 
     82, 
     85, 
-    86, 
-    88
+    86
   ], 
   "node_row_ptr": [
     0, 
@@ -1066,9 +1060,8 @@
     99, 
     100, 
     101, 
-    102, 
-    103
+    102
   ], 
-  "heads": [[89, 0, 0]], 
-  "attrs": {"mxnet_version": ["int", 10200]}
+  "heads": [[88, 0, 0]], 
+  "attrs": {"mxnet_version": ["int", 10301]}
 }
