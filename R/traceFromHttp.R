@@ -1,7 +1,7 @@
 #' @title traceFinFromHttp 
 #' @details \code{traceFromImage} wrapper for use through opencpu.
 #' opencpu passes temp object name to function followed by \code{traceToHash}
-#' curl -v http://localhost:8004/ocpu/library/finFindR/R/traceFinFromHttp/json -F "imageobj=@C:/Users/jathompson/Documents/dolphinTestingdb/test2.jpg""
+#' curl -v http://localhost:8004/ocpu/library/finFindR/R/processFinFromHttp/json -F "imageobj=@C:/Users/jathompson/Documents/dolphinTestingdb/test2.jpg"
 #' aka: traceFinFromHttp(imageobj = list("yourfile1.jpg","yourfile2.jpg"))
 #'
 #' Processes an image(cimg) containing a fin. 
@@ -31,7 +31,7 @@ processFinFromHttp <- function(imageobj)
     traceResults <- traceFromImage(fin=load.image(imageobj),
                                    startStopCoords = NULL,
                                    pathNet = NULL)
-    return(as.data.frame(traceToHash(traceResults$annulus)))
+    return(as.data.frame(traceToHash(list(traceResults$annulus))))
   }else{
     traceImg <- list()
     for (imageName in imageobj)
