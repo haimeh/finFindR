@@ -66,13 +66,10 @@ distanceToRef <- function(queryHash,
 
 #' @title distanceToRefParallel 
 #' @description Function performing batched matching between a query catalogue to a reference catalogue
-#' To call from opencpu:
-#' curl https://cloud.opencpu.org/ocpu/library/finFindR/R/traceFinFromHttp \
-#' -H 'Content-Type: application/json' \
-#' -d '[
-#' [13.4,-11.6,15,2.4,0.4,12.3,7.7,11.7,-11.3,-0.9,3.5,-1.6,-8.1,-8.8,-1.8,-10.1,-4.8,-16.6,2.1,-4.9,11.7,-16.1,0.9,-4.2,11,3.7,14.8,-1.5,-10.8,11,10.7,-3.3], 
-#' [9.9,-9.7,10.2,-10.9,27.8,-15.2,10,-5.2,7.1,-6.3,3,-0.3,5.4,8.9,13.9,-3.7,3.1,1.9,9.4,-10.1,7.7,1.4,-5.8,-12,12.2,-16.1,-4.5,-5.6,5.3,0,-21.7,2.3]
-#' ]
+#' To call from opencpu, basic format resembles hashes={[0.1, 1.5, 2.2, 3.0],[6.0, 3.3, 4.1, 5.3]}
+#' where each vector denotes the featues extracted from an image of a dorsal fin.
+#' for example:
+#' curl http://localhost:8004/ocpu/library/finFindR/R/distanceToRefParallel/json -d "queryHashData={[1,2,3]}&referenceHashData={[-1,2,4],[-1,-2,-4]}"
 #' @param queryHashData matrix (or list) containing the hashes for matching
 #' @param referenceHashData matrix (or list) containing a reference catalogue of hashes
 #' @param batchSize int denoting the number of query instances to process at once
@@ -89,6 +86,7 @@ distanceToRefParallel <- function(queryHashData,
                                   counterEnvir=new.env(),
                                   displayProgressInShiny=F)
 {
+  warning(paste("qu:",queryHashData," ref:",referenceHashData))
   fullQueryIndeces <- seq_len(length(queryHashData))
   queryChunkIndex <- split(fullQueryIndeces, ceiling(seq_along(fullQueryIndeces)/batchSize))
   chunkListIndex <- 1
