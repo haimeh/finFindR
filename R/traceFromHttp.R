@@ -31,7 +31,7 @@ processFinFromHttp <- function(imageobj)
     traceResults <- traceFromImage(fin=load.image(imageobj),
                                    startStopCoords = NULL,
                                    pathNet = NULL)
-    return(as.data.frame(traceToHash(list(traceResults$annulus))))
+    return(as.numeric(traceToHash(list(traceResults$annulus))))
   }else{
     traceImg <- list()
     for (imageName in imageobj)
