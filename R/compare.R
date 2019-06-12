@@ -86,7 +86,8 @@ distanceToRefParallel <- function(queryHashData,
                                   counterEnvir=new.env(),
                                   displayProgressInShiny=F)
 {
-  warning(paste("qu:",queryHashData," ref:",referenceHashData))
+  warning(print(queryHashData))
+  warning(print(referenceHashData))
   fullQueryIndeces <- seq_len(length(queryHashData))
   queryChunkIndex <- split(fullQueryIndeces, ceiling(seq_along(fullQueryIndeces)/batchSize))
   chunkListIndex <- 1
