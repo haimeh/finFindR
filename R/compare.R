@@ -69,7 +69,9 @@ distanceToRef <- function(queryHash,
 #' To call from opencpu, basic format resembles hashes={[0.1, 1.5, 2.2, 3.0],[6.0, 3.3, 4.1, 5.3]}
 #' where each vector denotes the featues extracted from an image of a dorsal fin.
 #' for example:
-#' curl http://localhost:8004/ocpu/library/finFindR/R/distanceToRefParallel/json -d "queryHashData={[1,2,3]}&referenceHashData={[-1,2,4],[-1,-2,-4]}"
+#' curl http://localhost:8004/ocpu/library/finFindR/R/distanceToRefParallel/json\
+#'  -d "{\"queryHashData\":{\"unknown\":[1,2,3]},\"referenceHashData\":{\"sal\":[-1,2,4],\"bob\":[-1,-2,-4]}}"\
+#'  -H "Content-Type: application/json"  
 #' @param queryHashData matrix (or list) containing the hashes for matching
 #' @param referenceHashData matrix (or list) containing a reference catalogue of hashes
 #' @param batchSize int denoting the number of query instances to process at once

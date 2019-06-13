@@ -2,7 +2,7 @@
 #' @details \code{traceFromImage} wrapper for use through opencpu.
 #' opencpu passes temp object name to function followed by \code{traceToHash}
 #' curl -v http://localhost:8004/ocpu/library/finFindR/R/processFinFromHttp/json -F "imageobj=@C:/Users/jathompson/Documents/dolphinTestingdb/jensImgs/test2.jpg"
-#' aka: traceFinFromHttp(imageobj = list("yourfile1.jpg","yourfile2.jpg"))
+#' aka: traceFinFromHttp(imageobj = "yourfile1.jpg")
 #'
 #' Processes an image(cimg) containing a fin. 
 #' First the image undergoes cleanup through a variety of filters and glare removal via
