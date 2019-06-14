@@ -22,9 +22,9 @@ distanceToRefParallel(queryHashData, referenceHashData, batchSize = 500,
 \value{
 list of two dataframes. The dataframes are formatted as follows:
 Each row denotes a query image in the same order as provided in the function call. 
-ie If the first hash in queryHashData was extracted from an image of dolphin "alice", the first row contains matches to dolphin "alice" \n
+ie If the first hash in queryHashData was extracted from an image of dolphin "alice", the first row contains matches to dolphin "alice" 
 Each column represents a potential match from the referenceHashData, 
-Columns are ordered by proximity of match from with the closest match being in column 1\n
+Columns are ordered by proximity of match from with the closest match being in column 1
 The index refers to the referenceHashData list provided. 
 If column 1 for dolphin "alice" is 12, then the 12th element in referenceHashData is the best match.
 "sortingIndex" denotes the element from best to worst match in the reference catalogue.
