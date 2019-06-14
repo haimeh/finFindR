@@ -17,11 +17,11 @@ hash assiciated with the provided image and trailing edge
 if coordinates are generated from finFindR, \code{constrainSizeFinImage} 
 should be called by setting boundResize = 1
 opencpu passes temp object name to function followed by \code{traceToHash}
-curl -v http://localhost:8004/ocpu/library/finFindR/R/processFinFromHttp/json \
+curl -v http://localhost:8004/ocpu/library/finFindR/R/hashFromImageAndEdgeCoord/json \
 -F "imageobj=@C:/Users/jathompson/Documents/dolphinTestingdb/jensImgs/test2.jpg"\
--F "xvec=[6,7,8,7,6,5,5,6,7,8,9]\
--F "yvec=[3,4,5,6,6,5,6,6,7,8,9]
-aka: traceFinFromHttp(imageobj = "yourfile1.jpg",xvec=c(3,4,5,6,6,5,6,7,8),yvec=c(6,7,8,7,6,5,5,6,7))
+-F "xvec=[6,7,8,7,6,5,5,6,7,8,9]"\
+-F "yvec=[3,4,5,6,6,5,6,6,7,8,9]"
+aka: hashFromImageAndEdgeCoord(imageobj = "yourfile1.jpg",xvec=c(3,4,5,6,6,5,6,7,8),yvec=c(6,7,8,7,6,5,5,6,7))
 
 \code{extractAnnulus}
 which collects image data used for identification.

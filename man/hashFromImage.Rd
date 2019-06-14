@@ -11,14 +11,14 @@ hashFromImage(imageobj)
 }
 \value{
 Value of type list containing:
-"coordinates" a matrix of coordinates
 "hash" vector specifying an individual
+"coordinates" a matrix of coordinates
 }
 \details{
 \code{traceFromImage} wrapper for use through opencpu.
 opencpu passes temp object name to function followed by \code{traceToHash}
-curl -v http://localhost:8004/ocpu/library/finFindR/R/processFinFromHttp/json -F "imageobj=@C:/Users/jathompson/Documents/dolphinTestingdb/jensImgs/test2.jpg"
-aka: traceFinFromHttp(imageobj = "yourfile1.jpg")
+curl -v http://localhost:8004/ocpu/library/finFindR/R/hashFromImage/json -F "imageobj=@C:/Users/jathompson/Documents/dolphinTestingdb/jensImgs/test2.jpg"
+aka: hashFromImage(imageobj = "yourfile1.jpg")
 
 Processes an image(cimg) containing a fin. 
 First the image undergoes cleanup through a variety of filters and glare removal via
