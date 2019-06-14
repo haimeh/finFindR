@@ -70,16 +70,22 @@ distanceToRef <- function(queryHash,
 #' where each vector denotes the featues extracted from an image of a dorsal fin.
 #' for example:
 #' curl http://localhost:8004/ocpu/library/finFindR/R/distanceToRefParallel/json\
-#'  -d "{\"queryHashData\":{\"unknown\":[1,2,3]},\"referenceHashData\":{\"sal\":[-1,2,4],\"bob\":[-1,-2,-4]}}"\
+#'  -d "{\"queryHashData\":{\"unknown1\":[1,2,3]},\"referenceHashData\":{\"sal\":[-1,2,4],\"bob\":[-1,-2,-4]}}"\
 #'  -H "Content-Type: application/json"  
-#' @param queryHashData matrix (or list) containing the hashes for matching
-#' @param referenceHashData matrix (or list) containing a reference catalogue of hashes
+#' @param queryHashData dataframe (or list) containing the hashes for matching
+#' @param referenceHashData dataframe (or list) containing a reference catalogue of hashes
 #' @param batchSize int denoting the number of query instances to process at once
-#' @param counterEnvir r enfironment object to hold a progress counter for display purposes
+#' @param counterEnvir r environment object to hold a progress counter for display purposes
 #' @param displayProgressInShiny bool denoting if function is called inside an rshiny instance
-#' @return list of two dataframes: 
-#' "distances" for all query to reference pairs
-#' "sortingIndex" which denote the order from best to worst match in the reference catalogue
+#' @return list of two dataframes. The dataframes are formatted as follows:
+#' Each row denotes a query image in the same order as provided in the function call. 
+#' ie If the first hash in queryHashData was extracted from an image of dolphin "alice", the first row contains matches to dolphin "alice" \n
+#' Each column represents a potential match from the referenceHashData, 
+#' Columns are ordered by proximity of match from with the closest match being in column 1\n
+#' The index refers to the referenceHashData list provided. 
+#' If column 1 for dolphin "alice" is 12, then the 12th element in referenceHashData is the best match.
+#' "sortingIndex" denotes the element from best to worst match in the reference catalogue.
+#' "distances" denotes the distance to the index specified in "sorting Index"
 #' @export 
 distanceToRefParallel <- function(queryHashData,
                                   referenceHashData,
@@ -88,8 +94,6 @@ distanceToRefParallel <- function(queryHashData,
                                   counterEnvir=new.env(),
                                   displayProgressInShiny=F)
 {
-  (print(queryHashData))
-  (print(referenceHashData))
   fullQueryIndeces <- seq_len(length(queryHashData))
   queryChunkIndex <- split(fullQueryIndeces, ceiling(seq_along(fullQueryIndeces)/batchSize))
   chunkListIndex <- 1
@@ -142,6 +146,7 @@ distanceToRefParallel <- function(queryHashData,
   
   distances <- as.data.frame(as.array(mxdistances))
   sortingIndex <- as.data.frame(as.array(mx.nd.transpose(mxsortingIndex)))
+
   #clear the nd arrays
   rm(mxdistanceChunks,mxdistances,sortingIndexChunks,mxsortingIndex,referenceArray)
   gc()

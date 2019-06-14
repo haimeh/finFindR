@@ -9,29 +9,34 @@ distanceToRefParallel(queryHashData, referenceHashData, batchSize = 500,
   counterEnvir = new.env(), displayProgressInShiny = F)
 }
 \arguments{
-\item{queryHashData}{matrix (or list) containing the hashes for matching}
+\item{queryHashData}{dataframe (or list) containing the hashes for matching}
 
-\item{referenceHashData}{matrix (or list) containing a reference catalogue of hashes}
+\item{referenceHashData}{dataframe (or list) containing a reference catalogue of hashes}
 
 \item{batchSize}{int denoting the number of query instances to process at once}
 
-\item{counterEnvir}{r enfironment object to hold a progress counter for display purposes}
+\item{counterEnvir}{r environment object to hold a progress counter for display purposes}
 
 \item{displayProgressInShiny}{bool denoting if function is called inside an rshiny instance}
 }
 \value{
-list of two dataframes: 
-"distances" for all query to reference pairs
-"sortingIndex" which denote the order from best to worst match in the reference catalogue
+list of two dataframes. The dataframes are formatted as follows:
+Each row denotes a query image in the same order as provided in the function call. 
+ie If the first hash in queryHashData was extracted from an image of dolphin "alice", the first row contains matches to dolphin "alice" \n
+Each column represents a potential match from the referenceHashData, 
+Columns are ordered by proximity of match from with the closest match being in column 1\n
+The index refers to the referenceHashData list provided. 
+If column 1 for dolphin "alice" is 12, then the 12th element in referenceHashData is the best match.
+"sortingIndex" denotes the element from best to worst match in the reference catalogue.
+"distances" denotes the distance to the index specified in "sorting Index"
 }
 \description{
 Function performing batched matching between a query catalogue to a reference catalogue
-To call from opencpu:
-curl https://cloud.opencpu.org/ocpu/library/finFindR/R/traceFinFromHttp \
--H 'Content-Type: application/json' \
--d '[
-[13.4,-11.6,15,2.4,0.4,12.3,7.7,11.7,-11.3,-0.9,3.5,-1.6,-8.1,-8.8,-1.8,-10.1,-4.8,-16.6,2.1,-4.9,11.7,-16.1,0.9,-4.2,11,3.7,14.8,-1.5,-10.8,11,10.7,-3.3], 
-[9.9,-9.7,10.2,-10.9,27.8,-15.2,10,-5.2,7.1,-6.3,3,-0.3,5.4,8.9,13.9,-3.7,3.1,1.9,9.4,-10.1,7.7,1.4,-5.8,-12,12.2,-16.1,-4.5,-5.6,5.3,0,-21.7,2.3]
-]
+To call from opencpu, basic format resembles hashes={[0.1, 1.5, 2.2, 3.0],[6.0, 3.3, 4.1, 5.3]}
+where each vector denotes the featues extracted from an image of a dorsal fin.
+for example:
+curl http://localhost:8004/ocpu/library/finFindR/R/distanceToRefParallel/json\
+ -d "{\"queryHashData\":{\"unknown1\":[1,2,3]},\"referenceHashData\":{\"sal\":[-1,2,4],\"bob\":[-1,-2,-4]}}"\
+ -H "Content-Type: application/json"
 }
 
