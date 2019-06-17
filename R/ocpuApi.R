@@ -30,8 +30,8 @@ hashFromImage <- function(imageobj)
                                    startStopCoords = NULL,
                                    pathNet = NULL)
     traceResult <- traceToHash(list(traceResults$annulus))
-    traceResult[[2]] <- decodePath(traceResults$coordinates)
-    return(traceResult)
+    trailingEdge <- traceResults$coordinates
+    return(list("hash"=traceResult,"coordinates"=trailingEdge))
   }else{
     traceImg <- list()
     for (imageName in imageobj)
