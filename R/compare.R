@@ -92,7 +92,8 @@ distanceToRefParallel <- function(queryHashData,
                                   batchSize = 500,
                                   returnLimit = min(100,length(referenceHashData)),
                                   counterEnvir=new.env(),
-                                  displayProgressInShiny=F)
+                                  displayProgressInShiny=F,
+                                  justIndex=F)
 {
   fullQueryIndeces <- seq_len(length(queryHashData))
   queryChunkIndex <- split(fullQueryIndeces, ceiling(seq_along(fullQueryIndeces)/batchSize))
@@ -145,11 +146,24 @@ distanceToRefParallel <- function(queryHashData,
   # sortingIndex <- as.data.frame(as.array(mx.nd.transpose(mx.nd.argsort(mxdistances,axis = 0)+1)))
   
   distances <- as.data.frame(as.array(mxdistances))
-  sortingIndex <- as.data.frame(as.array(mx.nd.transpose(mxsortingIndex)))
-
+  sortingIndex <- as.array(mxsortingIndex)
+  
   #clear the nd arrays
   rm(mxdistanceChunks,mxdistances,sortingIndexChunks,mxsortingIndex,referenceArray)
   gc()
-  return(list(distances=distances,sortingIndex=sortingIndex))
+  
+  if(justIndex)
+  {
+    return(list(distances=distances,sortingIndex=as.data.frame(sortingIndex)))
+  }else{
+    rownames(distances) <- names(queryHashData)
+    nameTable <- apply(t(sortingIndex),1,function(x)names(referenceHashData)[x])
+    
+    # single queries need to be turned back from vectors
+    if(nrow(distances)<=1){nameTable <- as.data.frame(t(nameTable))}
+    rownames(nameTable) <- names(queryHashData)
+    return(list(distances=distances,sortingIndex=sortingIndex))
+  }
+  # sortingIndex <- as.data.frame(as.array(mx.nd.transpose(mxsortingIndex)))
 }
 

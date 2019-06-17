@@ -188,6 +188,7 @@ calculateRankTable <- function(rankTable,
                                                  counterEnvir=counterEnvir,
                                                  batchSize = 500,
                                                  displayProgressInShiny=T)
+      comparisonResults$sortingIndex <- t(comparisonResults$sortingIndex)
       incProgress(0,
                   detail = paste("Matching Complete"),
                   session = counterEnvir$reactiveDomain)
