@@ -161,8 +161,8 @@ distanceToRefParallel <- function(queryHashData,
     if(nrow(distances)<=1){nameTable <- as.data.frame(t(nameTable))}
     #rownames(nameTable) <- names(queryHashData)
     
-    nameTable <- setNames(split(nameTable, seq(nrow(nameTable))), names(queryHashData))
-    distances <- setNames(split(distances, seq(nrow(distances))), names(queryHashData))
+    nameTable <- setNames(lapply(split(nameTable, seq(nrow(nameTable))),as.character), names(queryHashData))
+    distances <- setNames(lapply(split(distances, seq(nrow(distances))),as.numeric), names(queryHashData)))
     
     return(list(distances=distances,sortingIndex=nameTable))
   }
