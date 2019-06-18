@@ -156,13 +156,15 @@ distanceToRefParallel <- function(queryHashData,
   {
     return(list(distances=distances,sortingIndex=as.data.frame(sortingIndex)))
   }else{
-    rownames(distances) <- names(queryHashData)
     nameTable <- apply(t(sortingIndex),1,function(x)names(referenceHashData)[x])
-    
     # single queries need to be turned back from vectors
     if(nrow(distances)<=1){nameTable <- as.data.frame(t(nameTable))}
-    rownames(nameTable) <- names(queryHashData)
-    return(list(distances=distances,sortingIndex=sortingIndex))
+    #rownames(nameTable) <- names(queryHashData)
+    
+    nameTable <- setNames(split(nameTable, seq(nrow(nameTable))), names(queryHashData))
+    distances <- setNames(split(distances, seq(nrow(distances))), names(queryHashData))
+    
+    return(list(distances=distances,sortingIndex=nameTable))
   }
   # sortingIndex <- as.data.frame(as.array(mx.nd.transpose(mxsortingIndex)))
 }
