@@ -37,27 +37,6 @@ extractAnnulus <- function(imageFromR, xCoordinates, yCoordinates) {
     .Call(`_finFindR_extractAnnulus`, imageFromR, xCoordinates, yCoordinates)
 }
 
-#' simplifyAngles
-#' 
-#' This function returns a cimg of type int.
-#' Descritizes vectors represented by their angle into one of 4 sectors.
-#' Best visualized has the right half of the unit circle devided in 4
-#'
-#' @param ang cimg reference of type double
-NULL
-
-#' nonMaxSuppress
-#' 
-#' This function returns a cimg of type double.
-#' Verifies the allignment between
-#' The apex of the gradient magnitude of x and y in the 3x3 region around each pixel,
-#' with the angle range estimated from the \code{simplifyAngles} function.
-#' Allignment is soft, in that overlap is allowed.
-#' 
-#' @param edge cimg reference of type double
-#' @param ang cimg reference of type int
-NULL
-
 #' fillGlare
 #' 
 #' This function returns a cimg wrapped as NumeriMatrix.

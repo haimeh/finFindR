@@ -68,16 +68,20 @@ distanceToRef <- function(queryHash,
 #' @description Function performing batched matching between a query catalogue to a reference catalogue
 #' To call from opencpu, basic format resembles hashes={[0.1, 1.5, 2.2, 3.0],[6.0, 3.3, 4.1, 5.3]}
 #' where each vector denotes the featues extracted from an image of a dorsal fin.
-#' for example:
-#' curl http://localhost:8004/ocpu/library/finFindR/R/distanceToRefParallel/json\
-#'  -d "{\"queryHashData\":{\"unknown1\":[1,2,3]},\"referenceHashData\":{\"sal\":[-1,2,4],\"bob\":[-1,-2,-4]}}"\
-#'  -H "Content-Type: application/json"  
+#' @usage curl http://localhost:8004/ocpu/library/finFindR/R/distanceToRefParallel/json\
+#'  -d "{\
+#'  \"queryHashData\":{\"unk1\":[1,2,3]},\
+#'  \"referenceHashData\":{\"sal\":[-1,2,4],\"bob\":[-1,-2,-4]},\
+#'  \"justIndex\":0}"\
+#'  -H "Content-Type: application/json"
 #' @param queryHashData dataframe (or list) containing the hashes for matching
 #' @param referenceHashData dataframe (or list) containing a reference catalogue of hashes
 #' @param batchSize int denoting the number of query instances to process at once
 #' @param counterEnvir r environment object to hold a progress counter for display purposes
 #' @param displayProgressInShiny bool denoting if function is called inside an rshiny instance
+#' @param justIndex bool denoting if comparison should just return index dataframes or ordered names (mainly for opencpu api)
 #' @return list of two dataframes. The dataframes are formatted as follows:
+#' If justIndex is true:
 #' Each row denotes a query image in the same order as provided in the function call. 
 #' ie If the first hash in queryHashData was extracted from an image of dolphin "alice", the first row contains matches to dolphin "alice" 
 #' Each column represents a potential match from the referenceHashData, 
@@ -86,6 +90,10 @@ distanceToRef <- function(queryHash,
 #' If column 1 for dolphin "alice" is 12, then the 12th element in referenceHashData is the best match.
 #' "sortingIndex" denotes the element from best to worst match in the reference catalogue.
 #' "distances" denotes the distance to the index specified in "sorting Index"
+#' If justIndex is false:
+#' Two named lists are returned:
+#' "sortingIndex" list of vectors containing referenceHashData names, ordered by proximety of match. Each list is named after the queryHashData element it represents
+#' "distances" list of vectors containing distances to each match. Each list is named after the queryHashData element it represents
 #' @export 
 distanceToRefParallel <- function(queryHashData,
                                   referenceHashData,
@@ -93,7 +101,7 @@ distanceToRefParallel <- function(queryHashData,
                                   returnLimit = min(100,length(referenceHashData)),
                                   counterEnvir=new.env(),
                                   displayProgressInShiny=F,
-                                  justIndex=F)
+                                  justIndex=T)
 {
   fullQueryIndeces <- seq_len(length(queryHashData))
   queryChunkIndex <- split(fullQueryIndeces, ceiling(seq_along(fullQueryIndeces)/batchSize))

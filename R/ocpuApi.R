@@ -1,9 +1,10 @@
 #' @title hashFromImage 
+#' @usage curl -v http://localhost:8004/ocpu/library/finFindR/R/hashFromImage/json\
+#' -F "imageobj=@C:/Users/jathompson/Documents/dolphinTestingdb/jensImgs/test2.jpg"
+#' 
+#' hashFromImage(imageobj = "yourfile1.jpg")
 #' @details \code{traceFromImage} wrapper for use through opencpu.
 #' opencpu passes temp object name to function followed by \code{traceToHash}
-#' curl -v http://localhost:8004/ocpu/library/finFindR/R/hashFromImage/json -F "imageobj=@C:/Users/jathompson/Documents/dolphinTestingdb/jensImgs/test2.jpg"
-#' aka: hashFromImage(imageobj = "yourfile1.jpg")
-#'
 #' Processes an image(cimg) containing a fin. 
 #' First the image undergoes cleanup through a variety of filters and glare removal via
 #' \code{constrainSizeFinImage} and \code{fillGlare}
@@ -16,7 +17,7 @@
 #' \code{extractAnnulus}
 #' which collects image data used for identification.
 #' Both the coordinates and the image annulus are then returned.
-#' @param imageobj Value of type cimg. Load the image via load.image("directory/finImage.JPG")
+#' @param imageobj character vector which denots image file "directory/finImage.JPG"
 #' @return Value of type list containing:
 #' "hash" vector specifying an individual
 #' "coordinates" a matrix of coordinates
@@ -48,20 +49,27 @@ hashFromImage <- function(imageobj)
 }
 
 #' @title hashFromImageAndEdgeCoord 
+#' @usage curl -v http://localhost:8004/ocpu/library/finFindR/R/hashFromImageAndEdgeCoord/json \
+#' -F "imageobj=@C:/Users/jathompson/Documents/dolphinTestingdb/jensImgs/test2.jpg"\
+#' -F "xvec=[6,7,8,7,6,5,5,6,7,8,9]"\
+#' -F "yvec=[3,4,5,6,6,5,6,6,7,8,9]"
+#' 
+#' hashFromImageAndEdgeCoord(
+#'   imageobj = "yourfile1.jpg",
+#'   xvec=c(3,4,5,6,6,5,6,7,8),
+#'   yvec=c(6,7,8,7,6,5,5,6,7)
+#' )
 #' @details \code{extractAnnulus} wrapper for use through opencpu.
 #' if coordinates are generated from finFindR, \code{constrainSizeFinImage} 
 #' should be called by setting boundResize = 1
 #' opencpu passes temp object name to function followed by \code{traceToHash}
-#' curl -v http://localhost:8004/ocpu/library/finFindR/R/hashFromImageAndEdgeCoord/json \
-#' -F "imageobj=@C:/Users/jathompson/Documents/dolphinTestingdb/jensImgs/test2.jpg"\
-#' -F "xvec=[6,7,8,7,6,5,5,6,7,8,9]"\
-#' -F "yvec=[3,4,5,6,6,5,6,6,7,8,9]"
-#' aka: hashFromImageAndEdgeCoord(imageobj = "yourfile1.jpg",xvec=c(3,4,5,6,6,5,6,7,8),yvec=c(6,7,8,7,6,5,5,6,7))
-#' 
+#' Coordinates should denote the pixels along the trailing edge of the fin
 #' \code{extractAnnulus}
 #' which collects image data used for identification.
 #' Coordinates assume the upper left corner is denoted as 1,1 (recall, R is 1 indexed)
-#' @param imageobj Value of type cimg. Load the image via load.image("directory/finImage.JPG")
+#' @param imageobj character vector which denots image file "directory/finImage.JPG"
+#' @param xCoordinates x pixel coordinates for data extraction
+#' @param yCoordinates y pixel coordinates for data extraction
 #' @return hash assiciated with the provided image and trailing edge
 #' @export
 

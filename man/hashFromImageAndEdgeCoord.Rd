@@ -4,10 +4,23 @@
 \alias{hashFromImageAndEdgeCoord}
 \title{hashFromImageAndEdgeCoord}
 \usage{
-hashFromImageAndEdgeCoord(imageobj, xvec, yvec, boundResize = F)
+curl -v http://localhost:8004/ocpu/library/finFindR/R/hashFromImageAndEdgeCoord/json \
+-F "imageobj=@C:/Users/jathompson/Documents/dolphinTestingdb/jensImgs/test2.jpg"\
+-F "xvec=[6,7,8,7,6,5,5,6,7,8,9]"\
+-F "yvec=[3,4,5,6,6,5,6,6,7,8,9]"
+
+hashFromImageAndEdgeCoord(
+  imageobj = "yourfile1.jpg",
+  xvec=c(3,4,5,6,6,5,6,7,8),
+  yvec=c(6,7,8,7,6,5,5,6,7)
+)
 }
 \arguments{
-\item{imageobj}{Value of type cimg. Load the image via load.image("directory/finImage.JPG")}
+\item{imageobj}{character vector which denots image file "directory/finImage.JPG"}
+
+\item{xCoordinates}{x pixel coordinates for data extraction}
+
+\item{yCoordinates}{y pixel coordinates for data extraction}
 }
 \value{
 hash assiciated with the provided image and trailing edge
@@ -17,12 +30,7 @@ hash assiciated with the provided image and trailing edge
 if coordinates are generated from finFindR, \code{constrainSizeFinImage} 
 should be called by setting boundResize = 1
 opencpu passes temp object name to function followed by \code{traceToHash}
-curl -v http://localhost:8004/ocpu/library/finFindR/R/hashFromImageAndEdgeCoord/json \
--F "imageobj=@C:/Users/jathompson/Documents/dolphinTestingdb/jensImgs/test2.jpg"\
--F "xvec=[6,7,8,7,6,5,5,6,7,8,9]"\
--F "yvec=[3,4,5,6,6,5,6,6,7,8,9]"
-aka: hashFromImageAndEdgeCoord(imageobj = "yourfile1.jpg",xvec=c(3,4,5,6,6,5,6,7,8),yvec=c(6,7,8,7,6,5,5,6,7))
-
+Coordinates should denote the pixels along the trailing edge of the fin
 \code{extractAnnulus}
 which collects image data used for identification.
 Coordinates assume the upper left corner is denoted as 1,1 (recall, R is 1 indexed)
