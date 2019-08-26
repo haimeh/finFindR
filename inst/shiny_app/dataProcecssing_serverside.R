@@ -89,7 +89,6 @@ cropDirectory <- function(searchDirectory,
 
 processImageData <- function(directory,
                              saveEnvir,
-                             appendNew,
                              mxnetModel,
                              pathNet)
 {
@@ -132,19 +131,14 @@ processImageData <- function(directory,
     hashData <- as.data.frame(traceToHash(traceImg,mxnetModel))
     
     # name lists of data
-    names(hashData) <- basename(imgPaths)
-    names(traceCoord) <- basename(imgPaths)
-    names(idData) <- basename(imgPaths)
-    if(!appendNew)
-    {
-      saveEnvir$hashData <- list()
-      saveEnvir$traceData <- list()
-      saveEnvir$idData <- NULL
-    }
+    names(hashData) <- paste0(basename(imgPaths),'_h')
+    names(traceCoord) <- paste0(basename(imgPaths),'_t')
+    names(idData) <- paste0(basename(imgPaths),'_i')
+
     
-    saveEnvir$hashData <- append(hashData,saveEnvir$hashData)
-    saveEnvir$traceData <- append(traceCoord,saveEnvir$traceData)
-    saveEnvir$idData <- append(idData,saveEnvir$idData)
+    saveEnvir$hashData <- as.environment(hashData)
+    saveEnvir$traceData <- as.environment(traceData)
+    saveEnvir$idData <- as.environment(idData)
   }
 }
 
@@ -169,22 +163,101 @@ topMatchPerClass <- function(table,
   }
 }
 
+collectData <- function(category,env,name=NULL)
+{
+  collection <- new.env()#list()
+  
+  if(dirname(name)==".")
+  {
+    directories <- ls(env)
+  }else{
+    directories <- dirname(name)
+  }
+  for(targetDir in directories)
+  {
+    if(is.null(name))
+    {
+      for (targetImg in ls(env[[targetDir]][[category]]))
+      {
+        assign(x=paste(file.path(targetDir,substr(x=targetImg,start=1,stop=nchar(targetImg)-2))), 
+               value=get(x=paste0(targetImg,"_",substr(x=category,start=1,stop=1) ), envir=env[[targetDir]][[category]]), 
+               envir=collection)
+        # collection[[paste(file.path(targetDir,substr(x=targetImg,start=1,stop=nchar(targetImg)-2)))]] <- env[[targetDir]][[category]][[targetImg]]
+      }
+    }else{
+      if (basename(name) %IN% ls(env[[targetDir]][[category]]))
+      {
+        assign(x=paste(file.path(targetDir,name)), 
+               value=get(x=name, envir=env[[targetDir]][[category]]), 
+               envir=collection)
+        # collection[[paste(file.path(targetDir,name))]] <- env[[targetDir]][[category]][[name]]
+      }
+    }
+  }
+  return(collection)
+}
+
+removeData <- function(category,env,name)
+{
+  if(dirname(name)==".")
+  {
+    directories <- ls(env)
+  }else{
+    directories <- dirname(name)
+  }
+  for(targetDir in directories)
+  {
+    if (basename(name) %IN% ls(env[[targetDir]][[category]]))
+    {
+      remove(list=paste(file.path(targetDir,name)),
+             envir=collection)
+    }
+  }
+}
+
+saveLazyCatalogue <- function(envir,filepath)
+{
+  catalogue <- new.env()
+  for(catalogueDir in ls(envir))
+  {
+    
+    for(thing in ls(envir[[catalogueDir]]$idData))
+    {
+      assign(thing, get(thing, envir[[catalogueDir]]$idData), catalogue)
+    }
+    for(thing in ls(envir[[catalogueDir]]$hashData))
+    {
+      assign(thing, get(thing, envir[[catalogueDir]]$hashData), catalogue)
+    }
+    for(thing in ls(envir[[catalogueDir]]$traceData))
+    {
+      assign(thing, get(thing, envir[[catalogueDir]]$traceData), catalogue)
+    }
+  }
+  tools:::makeLazyLoadDB(catalogue, file.path(filepath,"finFindR"))
+  rm(catalogue)
+  gc()
+}
 
 calculateRankTable <- function(rankTable,
                                sessionQuery,
                                sessionReference)
 {
+  
+  queryHashes <- collectData(category="hashData",env=sessionQuery)
+  referenceHashes <- collectData(category="hashData",env=sessionReference)
+  
   counterEnvir <- new.env()
   counterEnvir$progressTicker <- 0
   counterEnvir$reactiveDomain <- getDefaultReactiveDomain()
-  counterEnvir$length <- length(sessionQuery$hashData)
+  counterEnvir$length <- length(queryHashes)
   
   
   withProgress(
     message = 'Matching', value = 0, session = counterEnvir$reactiveDomain,
     {
-      comparisonResults <- distanceToRefParallel(queryHashData=sessionQuery$hashData,
-                                                 referenceHashData=sessionReference$hashData,
+      comparisonResults <- distanceToRefParallel(queryHashData=queryHashes,
+                                                 referenceHashData=referenceHashes,
                                                  counterEnvir=counterEnvir,
                                                  batchSize = 500,
                                                  displayProgressInShiny=T)
@@ -199,7 +272,7 @@ calculateRankTable <- function(rankTable,
     withProgress(
       message = 'Sorting', value = 0,{
         # browser()
-        rownames <- paste(names(sessionQuery$hashData),":",sessionQuery$idData)
+        rownames <- paste(names(sessionQuery$idData),":",sessionQuery$idData)
         
         incProgress(0,detail=paste("file locations"))
         rankTable$Name <- apply(comparisonResults$sortingIndex,1,function(x)names(sessionReference$idData)[x])
@@ -233,6 +306,7 @@ calculateRankTable <- function(rankTable,
       })
     gc()
   }
+  rm(queryHashes,referenceHashes)
 }
 # extractMetadata <- function(directory,saveEnvir)
 # {

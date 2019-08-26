@@ -50,14 +50,12 @@ function(input, output, session) {
   
   # --- clear session memory
   observeEvent(input$clearQuery,{
-    sessionQuery$hashData <- NULL
-    sessionQuery$traceData <- list()
-    sessionQuery$idData <- NULL
+    rm(list=ls(envir = sessionQuery),envir = sessionQuery)
+    gc()
   })
   observeEvent(input$clearRef,{
-    sessionReference$hashData <- NULL
-    sessionReference$traceData <- list()
-    sessionReference$idData <- NULL
+    rm(list=ls(envir = sessionReference),envir = sessionReference)
+    gc()
   })
   observeEvent(c(input$clearRef,input$clearQuery),{
     rankTable$Name=NULL
@@ -79,7 +77,7 @@ function(input, output, session) {
   observeEvent(input$labelWithCSV,{
     if(!is.null(input$csvLabeler))
     {
-      if(length(sessionQuery$idData)>0)
+      if(length(ls(sessionQuery))>0)
       {
         renameTable <- read.csv(input$csvLabeler$datapath)
         if(all(c("Image","CatalogID") %in% colnames(renameTable)))
@@ -94,8 +92,11 @@ function(input, output, session) {
             ))
           }else{
             
-            x <- data.frame(Image = as.character(unlist(renameTable['Image'])),ID=renameTable['CatalogID'])
-            y <- data.frame(Image = names(sessionQuery$idData),ids=sessionQuery$idData)
+            x <- data.frame(Image = as.character(unlist(renameTable['Image'])),
+                            ID=renameTable['CatalogID'])
+            
+            y <- data.frame(Image = basename(names(collectData(category="idData",env=sessionQuery))),
+                            ids=collectData(category="idData",env=sessionQuery))
             
             if(input$removeForeign)
             {
@@ -104,11 +105,20 @@ function(input, output, session) {
               correction <- merge(x=x,y=y,by.x='Image', by.y='Image', all.y=T)
             }
             
-            sessionQuery$idData <- as.character(unlist(correction['CatalogID']))
-            names(sessionQuery$idData) <- as.character(unlist(correction['Image']))
+            for(catalogueDir in ls(sessionQuery))
+            {
+              sessionQuery[[catalogueDir]]$idData <- as.character(unlist(correction['CatalogID']))
+              names(sessionQuery[[catalogueDir]]$idData) <- paste0(as.character(unlist(correction['Image'])),'_i')
+              
+              sessionQuery[[catalogueDir]]$hashData <- sessionQuery[[catalogueDir]]$hashData[paste0(as.character(unlist(correction['Image'])),'_h')]
+              sessionQuery[[catalogueDir]]$traceData <- sessionQuery[[catalogueDir]]$traceData[paste0(as.character(unlist(correction['Image'])),'_t')]
+            }
             
-            sessionQuery$hashData <- sessionQuery$hashData[names(sessionQuery$idData)]
-            sessionQuery$traceData <- sessionQuery$traceData[names(sessionQuery$idData)]
+            # sessionQuery$idData <- as.character(unlist(correction['CatalogID']))
+            # names(sessionQuery$idData) <- as.character(unlist(correction['Image']))
+            # 
+            # sessionQuery$hashData <- sessionQuery$hashData[names(sessionQuery$idData)]
+            # sessionQuery$traceData <- sessionQuery$traceData[names(sessionQuery$idData)]
             
             rankTable$editCount <- rankTable$editCount+1
           }
@@ -147,9 +157,8 @@ function(input, output, session) {
        input$queryDirectory != "" && 
        length(input$queryDirectory)>0)
     {
-      save(list = as.character(c("hashData","traceData","idData")),
-           file=file.path(input$queryDirectory,"finFindR.Rdata"),
-           envir = sessionQuery)
+      saveLazyCatalogue(envir=sessionQuery,filepath=input$referenceDirectory)
+
       showModal(modalDialog(
         title = paste("Save Successful"),
         size = "s",
@@ -157,7 +166,7 @@ function(input, output, session) {
       ))
     }else{
       showModal(modalDialog(
-        title = paste("No File Selected"),
+        title = paste("No Folder Selected"),
         size = "s",
         easyClose = TRUE
       ))
@@ -171,17 +180,9 @@ function(input, output, session) {
        input$referenceDirectory != "" && 
        length(input$referenceDirectory)>0)
     {
-      gc()
-      concat <- as.environment(as.list(sessionReference, all.names=TRUE))
-      names(concat$hashData) <- basename(names(concat$hashData))
-      names(concat$traceData) <- basename(names(concat$traceData))
-      names(concat$idData) <- basename(names(concat$idData))
       
-      save(list = as.character(c("hashData","traceData","idData")),
-           file=file.path(input$referenceDirectory,"finFindR.Rdata"),
-           envir = concat)
-      rm(concat)
-      gc()
+      saveLazyCatalogue(envir=sessionReference,filepath=input$referenceDirectory)
+      
       showModal(modalDialog(
         title = paste("Concatenation Successful"),
         paste(input$referenceDirectory),
@@ -203,11 +204,20 @@ function(input, output, session) {
                                    selection=NULL)
   observeEvent(input$finalizeRemove,{
     
-    sessionQuery$idData <- sessionQuery$idData[which(names(sessionQuery$idData)!=readyToRemove$imgName)]
-    sessionQuery$hashData[readyToRemove$imgName] <- NULL
-    sessionQuery$traceData[readyToRemove$imgName] <- NULL
+    # sessionQuery$idData <- sessionQuery$idData[which(names(sessionQuery$idData)!=readyToRemove$imgName)]
+    # sessionQuery$hashData[readyToRemove$imgName] <- NULL
+    # sessionQuery$traceData[readyToRemove$imgName] <- NULL
+    removeData(category="idData",
+               env=sessionQuery,
+               name=imgName)
+    removeData(category="hashData",
+               env=sessionQuery,
+               name=imgName)
+    removeData(category="traceData",
+               env=sessionQuery,
+               name=imgName)
     
-    rownames <- paste(names(sessionQuery$hashData),":",sessionQuery$idData)
+    rownames <- paste(basename(names(collectData(category="idData",env=sessionQuery))),":",collectData(category="idData",env=sessionQuery))
     
     
     rankTable$Name <- rankTable$Name[rownames,]
@@ -460,7 +470,8 @@ function(input, output, session) {
              targetEnvir=sessionQuery)
     
     #neded to update FIX LATER
-    output$imageIDTableQuery <- renderText(sessionQuery$idData[imageNameTableQuery()])
+    # output$imageIDTableQuery <- renderText(sessionQuery$idData[imageNameTableQuery()])
+    output$imageIDTableQuery <- renderText(collectData(category="idData",env=sessionQuery,name=imageNameTableQuery()))
     
     plotsPanel[["TableQuery"]]$mode <- "default"
   })
@@ -478,7 +489,9 @@ function(input, output, session) {
   
   
   output$imageNameTableQuery <- renderText(imageNameTableQuery())
-  output$imageIDTableQuery <- renderText(sessionQuery$idData[imageNameTableQuery()])
+  
+  output$imageIDTableQuery <- renderText(collectData(category="idData",env=sessionQuery,name=imageNameTableQuery()))
+  # output$imageIDTableQuery <- renderText(sessionQuery$idData[imageNameTableQuery()])
   
   output$imageTableQuery <- renderPlot({
     print(paste('plot:',plotsPanel[["TableQuery"]]$fin))

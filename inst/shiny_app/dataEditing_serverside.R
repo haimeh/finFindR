@@ -23,66 +23,59 @@ prepRemoval <- function(imgSelected,readyToRemove,hashRowSelection=NULL)
 
 
 
-loadRdata <- function(directory,saveEnvir,appendNew,isRef)
+loadRdata <- function(directory,saveEnvir,appendNew)
 {
+  if(!appendNew)
+  {
+    rm(list=ls(envir = saveEnvir),envir = traceEnv)
+    gc()
+  }
   withProgress(
     message = "Searching for Rdata Files", value = 0,{
-      RdataFiles <- try(list.files(directory, full.names=TRUE, pattern="\\.Rdata$", recursive=appendNew))
+      RdataFiles <- try(list.files(directory, full.names=TRUE, pattern="\\.Rdb$|\\.Rdata$", recursive=appendNew))
       if(typeof(RdataFiles) != "try-error" && length(RdataFiles)>0)
       {
-        tempEnvir <- new.env()
-        tempEnvir$hashData <- list()
-        tempEnvir$traceData <- list()
-        tempEnvir$idData <- NULL
-        
-        loopEnvir <- new.env()
         for(RdataFile in unique(dirname(RdataFiles)))
         {
+          saveEnvir[RdataFile] <- new.env()
+          
           incProgress(1/length(unique(dirname(RdataFiles))))
-          if(file.exists(file.path(RdataFile,"finFindR.Rdata")))
+          
+          if(file.exists(file.path(RdataFile,"finFindR.Rdata")) && !file.exists(file.path(RdataFile,"finFindR.Rdb")))
           {
-            print(paste(length(dirname(RdataFiles)),isRef,"of",file.path(RdataFile,"finFindR.Rdata")))
-            load(file.path(RdataFile,"finFindR.Rdata"),loopEnvir)
-            
-            # to make references dir invariant, we only saved the photo name and look for dir when we are loading
-            if(isRef)
+            # create a converted copy of old storage method
+            tempEnvir <- new.env()
+            load(file.path(RdataFile,"finFindR.Rdata"),tempEnvir)
+            catalogue <- list()
+            for (name in names(idData))
             {
-              names(loopEnvir$hashData) <- normalizePath(file.path(RdataFile,names(loopEnvir$hashData)))
-              names(loopEnvir$traceData) <- normalizePath(file.path(RdataFile,names(loopEnvir$traceData)))
-              names(loopEnvir$idData) <- normalizePath(file.path(RdataFile,names(loopEnvir$idData)))
+              catalogue[paste0(name,"_h")] <- tempEnvir$hashData[name]
+              catalogue[paste0(name,"_i")] <- tempEnvir$idData[name]
+              if(class(tempEnvir$traceData[name])!="integer")
+              {
+                catalogue[paste0(name,"_t")] <- encodePath(tempEnvir$traceData[name])
+              }else{
+                catalogue[paste0(name,"_t")] <- tempEnvir$traceData[name]
+              }
             }
+            tools:::makeLazyLoadDB(catalogue, file.path(RdataFile,"finFindR"))
+            rm(tempEnvir)
+            gc()
+          }
+          if(file.exists(file.path(RdataFile,"finFindR.Rdb")))
+          {
+            saveEnvir[[RdataFile]]$hashData <- new.env()
+            saveEnvir[[RdataFile]]$traceData <- new.env()
+            saveEnvir[[RdataFile]]$idData <- new.env()
             
-            # this check is needed for a problem with the origional pregen rdata
-            # typically should not be needed
-            consistencyCheck <- c(length(loopEnvir$hashData),length(loopEnvir$traceData),length(loopEnvir$idData) )
-            if(min(consistencyCheck) != max(consistencyCheck))
-            {
-              refNames <- list(names(loopEnvir$hashData),names(loopEnvir$traceData),names(loopEnvir$idData))[which.min(consistencyCheck)]
-              
-              loopEnvir$hashData <- loopEnvir$hashData[unique(unlist(refNames))]
-              loopEnvir$traceData <- loopEnvir$traceData[unique(unlist(refNames))]
-              loopEnvir$idData <- loopEnvir$idData[unlist(refNames)]
-            }
+            print(paste(length(dirname(RdataFiles)),isRef,"of",file.path(RdataFile,"finFindR.Rdb")))
             
+            lazyLoad(file.path(RdataFile,"finFindR"),env=saveEnvir[[RdataFile]]$hashData,filter = function(x)endsWith(x,"_h"))
+            lazyLoad(file.path(RdataFile,"finFindR"),env=saveEnvir[[RdataFile]]$traceData,filter = function(x)endsWith(x,"_t"))
+            lazyLoad(file.path(RdataFile,"finFindR"),env=saveEnvir[[RdataFile]]$idData,filter = function(x)endsWith(x,"_i"))
             
-            tempEnvir$hashData <- append(tempEnvir$hashData,loopEnvir$hashData)
-            tempEnvir$traceData <- append(tempEnvir$traceData,loopEnvir$traceData)
-            tempEnvir$idData <- append(tempEnvir$idData,loopEnvir$idData)
           }
         }
-        rm(loopEnvir)
-        
-        if(!appendNew)
-        {
-          saveEnvir$hashData <- list()
-          saveEnvir$traceData <- list()
-          saveEnvir$idData <- NULL
-        }
-        saveEnvir$hashData <- append(saveEnvir$hashData,tempEnvir$hashData)
-        saveEnvir$traceData <- append(saveEnvir$traceData,tempEnvir$traceData)
-        saveEnvir$idData <- append(saveEnvir$idData,tempEnvir$idData)
-        
-        rm(tempEnvir)
         
       }else{
         showModal(modalDialog(
