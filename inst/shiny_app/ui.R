@@ -13,7 +13,6 @@ fluidPage(
       #%%%%%%%%%%%%%%%%%%%%%%%%
       # save stuff
       #%%%%%%%%%%%%%%%%%%%%%%%%
-      actionButton("saveRdata","Save Query Rdata"),
       actionButton("concatRdata","Concatenate Reference Rdata"),
       
       h1(" "),#just for space
@@ -155,6 +154,7 @@ fluidPage(
                  inputId = "clearRef",
                  label = "Clear References"
                ))),
+      # tableOutput("availableRef"),
       width = 3
     ),
     

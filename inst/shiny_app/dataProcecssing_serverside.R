@@ -22,7 +22,6 @@ getImgNames <- function(directory,
   return(imgs)
 }
 
-
 cropDirectory <- function(searchDirectory,
                           saveDirectory,
                           cropNet,
@@ -129,22 +128,25 @@ processImageData <- function(directory,
     }
     print(remove)
     if(length(remove)>0){print("removing");imgPaths <- imgPaths[-remove]}
-    hashData <- as.data.frame(traceToHash(traceImg,mxnetModel))
+    # hashData <- as.data.frame(traceToHash(traceImg,mxnetModel))
+    hashData <- traceToHash(traceImg,mxnetModel)
     
     # name lists of data
-    names(hashData) <- basename(imgPaths)
-    names(traceCoord) <- basename(imgPaths)
     names(idData) <- basename(imgPaths)
     if(!appendNew)
     {
-      saveEnvir$hashData <- list()
-      saveEnvir$traceData <- list()
       saveEnvir$idData <- NULL
     }
-    
-    saveEnvir$hashData <- append(hashData,saveEnvir$hashData)
-    saveEnvir$traceData <- append(traceCoord,saveEnvir$traceData)
     saveEnvir$idData <- append(idData,saveEnvir$idData)
+    
+    fins <- data.frame(name = as.character(basename(imgPaths)),
+                       id = as.character(saveEnvir$idData),
+                       trace = I(lapply(traceCoord, function(x) { serialize(x, NULL) })),
+                       hash = I(lapply(hashData, function(x) { serialize(x, NULL) })) )
+    conn <- dbConnect(RSQLite::SQLite(), file.path(unique(dirname(imgPaths)),"finFindR.db"))
+    dbWriteTable(conn, "fins", fins,overwrite=TRUE)
+    dbDisconnect(conn)
+    gc()
   }
 }
 
@@ -177,14 +179,14 @@ calculateRankTable <- function(rankTable,
   counterEnvir <- new.env()
   counterEnvir$progressTicker <- 0
   counterEnvir$reactiveDomain <- getDefaultReactiveDomain()
-  counterEnvir$length <- length(sessionQuery$hashData)
+  counterEnvir$length <- length(sessionQuery$idData)
   
   
   withProgress(
     message = 'Matching', value = 0, session = counterEnvir$reactiveDomain,
     {
-      comparisonResults <- distanceToRefParallel(queryHashData=sessionQuery$hashData,
-                                                 referenceHashData=sessionReference$hashData,
+      comparisonResults <- distanceToRefParallel(queryHashData=sessionQuery$gethashData(names(sessionQuery$idData)),
+                                                 referenceHashData=sessionReference$gethashData(names(sessionReference$idData)),
                                                  counterEnvir=counterEnvir,
                                                  batchSize = 500,
                                                  displayProgressInShiny=T)
@@ -199,13 +201,13 @@ calculateRankTable <- function(rankTable,
     withProgress(
       message = 'Sorting', value = 0,{
         # browser()
-        rownames <- paste(names(sessionQuery$hashData),":",sessionQuery$idData)
+        rownames <- paste(names(sessionQuery$idData),":",sessionQuery$idData)
         
         incProgress(0,detail=paste("file locations"))
-        rankTable$Name <- apply(comparisonResults$sortingIndex,1,function(x)names(sessionReference$idData)[x])
+        rankTable$Name <- t(apply(comparisonResults$sortingIndex,1,function(x)names(sessionReference$idData)[x]))
         simpleNamesVec <- basename(names(sessionReference$idData))
         incProgress(1/8)
-        rankTable$NameSimple <- apply(comparisonResults$sortingIndex,1,function(x)simpleNamesVec[x])
+        rankTable$NameSimple <- t(apply(comparisonResults$sortingIndex,1,function(x)simpleNamesVec[x]))
         # single queries need to be turned back from vectors
         if(nrow(comparisonResults$distances)<=1)
         {
@@ -216,7 +218,7 @@ calculateRankTable <- function(rankTable,
         rownames(rankTable$NameSimple) <- rownames
         
         incProgress(1/8,detail=paste("IDs"))
-        rankTable$ID <- apply(comparisonResults$sortingIndex,1,function(x)sessionReference$idData[x])
+        rankTable$ID <- t(apply(comparisonResults$sortingIndex,1,function(x)sessionReference$idData[x]))
         # single queries need to be turned back from vectors
         if(nrow(comparisonResults$distances)<=1){rankTable$ID <- as.data.frame(t(rankTable$ID))}
         rownames(rankTable$ID) <- rownames

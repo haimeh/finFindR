@@ -1,13 +1,19 @@
 # --- set ID
 assignID <- function(panelID,
                      imageName,
-                     targetEnvir)
+                     targetEnvir,
+                     input,
+                     rankTable)
 {
-  if(input[[paste0("textID",panelID)]] %in% c(""," "))
+  newid <- input[[paste0("textID",panelID)]]
+  if(newid %in% c(""," "))
   {
     print("ignoring change")
   }else{
-    targetEnvir$idData[imageName] <- input[[paste0("textID",panelID)]]
+    targetEnvir$idData[imageName] <- newid
+    names(newid) <- imageName
+    if(length(newid)>1)stop("no multiname update")
+    setData(directory=input$queryDirectory,column="id",image_val=newid)
     
     rankTable$editCount <- rankTable$editCount+1
   }
@@ -15,13 +21,14 @@ assignID <- function(panelID,
 
 
 # --- set window to retrace
-prepRetrace <- function(panelID,
+prepRetrace <- function(panelEnv,
+                        panelID,
                         imageName,
                         rowName,
                         targetDir,
                         readyToRetrace)
 {
-  plotsPanel[[panelID]]$mode <- "fix"
+  panelEnv[[panelID]]$mode <- "fix"
   
   readyToRetrace$imgName <- imageName
   readyToRetrace$rowName <- rowName
@@ -30,12 +37,14 @@ prepRetrace <- function(panelID,
 }
 
 # --- restore defaults upon cancel
-cancelRetrace <- function(readyToRetrace,
-                          targetEnvir)
+cancelRetrace <- function(panelEnv,
+                          readyToRetrace,
+                          targetEnvir,
+                          traceGuideCounter)
 {
   if(length(readyToRetrace$panelID)>0)
   {
-    plotsPanel[[readyToRetrace$panelID]]$mode <- "default"
+    panelEnv[[readyToRetrace$panelID]]$mode <- "default"
     
     traceGuideCounter$count <- (-1)
     
@@ -46,27 +55,38 @@ cancelRetrace <- function(readyToRetrace,
     readyToRetrace$traceResults <- list()
   }else{
     print("no changes")
-    #plotsPanel[[readyToRetrace$panelID]]$mode <- "default"
+    #panelEnv[[readyToRetrace$panelID]]$mode <- "default"
   }
 }
 
 # --- save trace edit and update tables
-saveRetrace <- function(readyToRetrace,
+saveRetrace <- function(panelEnv,
+                        readyToRetrace,
                         targetEnvir,
-                        mxnetModel)
+                        sessionReference,
+                        mxnetModel,
+                        rankTable,
+                        traceGuideCounter)
 {
   if(length(readyToRetrace$traceResults)>0)
   {
     print("prep trace")
-    targetEnvir$traceData[readyToRetrace$imgName] <- list(readyToRetrace$traceResults$coordinates)
-    targetEnvir$hashData[readyToRetrace$imgName] <- list(traceToHash( list(readyToRetrace$traceResults$annulus ), mxnetModel ))
+    trace <- list( readyToRetrace$traceResults$coordinates )
+    names(trace) <- readyToRetrace$imgName
+    hash <- traceToHash( list(readyToRetrace$traceResults$annulus ), mxnetModel )
+    names(hash) <- readyToRetrace$imgName
     print("retrace hash calculated")
+    targetEnvir$settraceData(image_val=trace)
+    targetEnvir$sethashData(image_val=hash)
+    print("saving to db")
     
     # --- recalculate rank table ------------------
-    if(length(sessionReference$hashData)>0)
+    if(length(sessionReference$idData)>0)
     {
-      newDistances <- distanceToRef( (unlist(targetEnvir$hashData[readyToRetrace$imgName])),
-                                     data.frame(sessionReference$hashData))
+      # newDistances <- distanceToRef( (unlist(targetEnvir$hashData[readyToRetrace$imgName])),
+      #                                data.frame(sessionReference$hashData))
+      newDistances <- distanceToRef( unlist(targetEnvir$gethashData(readyToRetrace$imgName)),
+                                     data.frame(sessionReference$gethashData(names(sessionReference$idData))))
       # make sure to clip to correct number of columns
       newSortingIndex <- order(newDistances)[1:ncol(rankTable$Name)]
       
@@ -80,7 +100,7 @@ saveRetrace <- function(readyToRetrace,
     }
     # ---------------------------------------------
     
-    plotsPanel[[readyToRetrace$panelID]]$mode <- "default"
+    panelEnv[[readyToRetrace$panelID]]$mode <- "default"
     
     traceGuideCounter$count <- (-1)
     
