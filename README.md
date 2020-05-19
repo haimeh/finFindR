@@ -14,11 +14,13 @@ https://github.com/haimeh/finFindR/wiki/AppUsage<br />
 
 ## Features In Progress
 - Detailed editing of trace <br />
-- Saving key information directly to jpeg metadata<br />
-- Improving Rdata workflow <br />
+- Leading Edge <br />
+- Additional Species<br />
 <br /><br />
 
 ## A collaborative effort between
 
 ![west](inst/shiny_app/www/west.png)
-![nmmf](inst/shiny_app/www/nmmf.png) 
+![nmmf](inst/shiny_app/www/nmmf.png)
+<br /><br />
+Developed and Supported By Jaime Thompson
