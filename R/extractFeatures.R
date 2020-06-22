@@ -36,6 +36,27 @@ constrainSizeFinImage <- function(fin)
   return(list(fin=fin,resizeFactor=resizeFactor))
 }
 
+#' @title shrinkDomDim 
+#' @details shrink largest dim to maxDim in ratio preserving way
+#' @param image image to resize
+#' @param maxDim maximum dim
+#' @return resizeed image
+shrinkDomDim <- function(image, maxDim){
+  shrinkFactors <- c(w2h=height(image)/width(image),h2w=width(image)/height(image) )
+
+  domDim <- which.max(dim(image))
+  newDim <- c(0,0)
+  if(domDim == 1){
+    newDim[1] <- maxDim#dim(fin)[0] * shrinkFactors[1]
+    newDim[2] <- round(maxDim * shrinkFactors[1])
+  }else{
+    newDim[2] <- maxDim#dim(fin)[0] * shrinkFactors[1]
+    newDim[1] <- round(maxDim * shrinkFactors[2])
+  }
+
+  netIn <- resize(im=image,interpolation_type=5,size_x=newDim[1],size_y=newDim[2])
+  return(netIn)
+}
 
 ###########################################################################################
 # find the best edge trace
@@ -154,7 +175,7 @@ traceFromImage <- function(fin,
                            pathNet = NULL)
 {
   require("mxnet")
-  if(is.null(pathNet))(pathNet <- mxnet::mx.model.load(file.path(system.file("extdata", package="finFindR"),'tracePath128'), 20))
+  if(is.null(pathNet))(pathNet <- mxnet::mx.model.load(file.path(system.file("extdata", package="finFindR"),'SWA_finTest_fin'), 1000))
   if(!is.cimg(fin)){stop("fin must be Jpeg of type cimg")}
   if(!("MXFeedForwardModel" %in% class(pathNet))){stop("network must be of class MXFeedForwardModel")}
   
@@ -162,8 +183,10 @@ traceFromImage <- function(fin,
   finOG <- fin
   
   #### --- Highlight Trailing Edge --- ####
-  
-  netIn <- resize(fin,size_x = 132,size_y = 110,interpolation_type = 2)
+  netIn <- shrinkDomDim(fin,200)
+  newDim <- dim(netIn)
+  netOutResizeFactors <- c(dim(fin)[1]/newDim[1],dim(fin)[2]/newDim[2])
+
   estHighlight <- threshold(netIn,.97)
   
   cropRot <- dilate_square((netIn==0.0),5) | dilate_square((netIn==1.0),3)
@@ -178,26 +201,35 @@ traceFromImage <- function(fin,
   B(estExtractedSilhouette) <- B(netIn)-G(netIn)
   
   netIn <- as.array(netIn)
-  
-  #plot(as.cimg(netIn))
-  netOutResizeFactors <- c(dim(fin)[1]/132,dim(fin)[2]/110)
-  netIn <- append(netIn,netIn[132:1,,,])
-  
-  dim(netIn) <- c(132,110,3,2)
+ 
+
+  # non mirrored input
+  dim(netIn) <- c(newDim[1],newDim[2],3,1)
   finImIter <- mx.io.arrayiter(netIn,
-                  label=rep(0,2),
-                  batch.size=2)
-  netOut <- mxnet:::predict.MXFeedForwardModel(X=finImIter,model=pathNet,ctx=mxnet::mx.cpu(),array.layout = "colmajor")
+                  label=0,
+                  batch.size=1)
+  # forward and backward mirror chan
+  #netIn <- append(netIn,netIn[dim(netIn)[1]:1,,,])
+  #dim(netIn) <- c(newDim[1],newDim[2],3,2)
+  #finImIter <- mx.io.arrayiter(netIn,
+  #                label=rep(0,2),
+  #                batch.size=2)
+  netOutRaw <- mxnet:::predict.MXFeedForwardModel(X=finImIter,model=pathNet,ctx=mxnet::mx.cpu(),array.layout = "colmajor")
+  netOutFlat <- netOutRaw
+  netOutFlat[,,1,] <- 1-netOutRaw[,,1,] 
   
-  dim(netOut) <- c(132,110,2)
-  netOut <- parmax(list(as.cimg(netOut[,,1]),as.cimg(netOut[132:1,,2])))
-  # plot(as.cimg(netOut))
-  # browser()
-  
+  #netOutFlat <- parmax(list(as.cimg(netOutMirror[,,,1]),as.cimg(netOutMirror[newDim[1]:1,,,2])))
+
+  # channel 1 : all
+  # channel 2 : trailingEdge
+  # channel 3 : leadingEdge
+
   # --- if no fin found
-  if(!any(netOut>=.35)){print("No fin found");return(list(NULL,NULL))}
-  
-  netblb <- label(netOut>.35,high_connectivity = TRUE)
+  netThresh <- (netOutFlat[,,2,] >= .35)
+  if(!any(netThresh)){print("No fin found");return(list(NULL,NULL))}
+  #netOut <- as.cimg(netOutFlat[,,,2])
+  netThresh <- as.cimg(netThresh)
+  netblb <- label(netThresh, high_connectivity = TRUE)
   counts <- table(netblb)
   initBlobIndex <- as.integer(names(which(counts<=5)))
   netblb[which(netblb %in% initBlobIndex)] <- 0
@@ -209,8 +241,10 @@ traceFromImage <- function(fin,
   ySpan[is.na(ySpan)] <- 0
   ySpan <- range(which(ySpan>mean(ySpan)/2))
   
-  netOut <- as.cimg(netOut[c(xSpan[1]:xSpan[2]),c(ySpan[1]:ySpan[2]),,])
-  
+  #netOut <- as.cimg(netOut[c(xSpan[1]:xSpan[2]),c(ySpan[1]:ySpan[2]),,])
+  #netOut <- as.cimg(netOutFlat[c(xSpan[1]:xSpan[2]),c(ySpan[1]:ySpan[2]),,1])
+  #browser()
+  netOut <- as.cimg(netOutFlat[c(xSpan[1]:xSpan[2]),c(ySpan[1]:ySpan[2]),1,])
   
   # --- crop fin to edge
   
@@ -228,6 +262,7 @@ traceFromImage <- function(fin,
                                        floor(resizeSpanY[1]):ceiling(resizeSpanY[2]),,]))
   
   resizedFin <- constrainSizeFinImage(fin)
+
   resizeFactor <- resizedFin$resizeFactor
   fin <- resizedFin$fin
   
@@ -241,6 +276,14 @@ traceFromImage <- function(fin,
   }else{
     yRange <- round(diff(range(which((colSums(netOut>.5)>0))))*cumuResize[2] )
   }
+
+  # here we create the canny weighting image to constrain what edges are preserved
+  #finCut <- shrinkDomDim(fin,150)
+  #dim(finCut) <- dim(finCut)[c(1,2,4,3)]
+  #finCutIter <- mx.io.arrayiter(finCut,
+  #                label=0,
+  #                batch.size=1)
+  #netOut <- mxnet:::predict.MXFeedForwardModel(X=finCutIter,model=pathNet,ctx=mxnet::mx.cpu(),array.layout = "colmajor")
   cannyFilter <- isoblur(resize( netOut-.25 ,size_x = width(fin) , size_y = height(fin),interpolation_type = 6),yRange/1000)/max(netOut)
   
   
