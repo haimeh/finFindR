@@ -1,10 +1,10 @@
 Package: finFindR
 Type: Package
 Title: Fin Identification
-Version: 0.1.7
+Version: 0.1.8
 Date: 2018-02-03
 Author: Jaime Thompson
-Maintainer: Jaime Thompson <jwthompson@west-inc.com>
+Maintainer: Jaime Thompson <haimehs@gmail.com>
 Description: Core functions for extracting distinguishing features from dorsal
     fin images.
 License: GPL (>= 2)
