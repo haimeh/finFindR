@@ -1,4 +1,3 @@
-
 #cimg.use.openmp("never")
 
 
@@ -36,6 +35,8 @@ constrainSizeFinImage <- function(fin)
   return(list(fin=fin,resizeFactor=resizeFactor))
 }
 
+
+
 #' @title shrinkDomDim 
 #' @details shrink largest dim to maxDim in ratio preserving way
 #' @param image image to resize
@@ -57,6 +58,55 @@ shrinkDomDim <- function(image, maxDim){
   netIn <- resize(im=image,interpolation_type=5,size_x=newDim[1],size_y=newDim[2])
   return(netIn)
 }
+
+
+#' @title knn 
+#' @description rough fit of gaussians via knn
+#' @param X vector to fit
+#' @param k number of distributions
+#' @return list of distribution paramiters, assignments and density
+knn <- function(X, k){
+  Delta <- 1
+  iter <- 0
+  n = length(X)
+  while(Delta > 1e-4 && iter <= 20){
+    # initiation
+    if(iter == 0){
+      mu = mean(X)
+      dev = sd(X)
+      centroid <- seq(from=mu-dev,to=mu+dev,length.out=k)
+      deviation <- rep(dev,k)
+      centroid_mem <- centroid
+      deviation_mem <- deviation
+    }
+    # equivalent to E-step
+    d <- sapply(1:k, function(c) sapply(1:n, 
+      function(i) sum(dnorm(X[i], centroid[c], deviation[c])) ))
+    cluster <- apply(d, 1, which.max)
+    
+    # equivalent to M-step
+    centroid <- t(sapply(1:k, function(c) {mean(X[cluster == c])}))
+    deviation <- t(sapply(1:k, function(c) {sd(X[cluster == c])}))
+
+    Delta <- sum((centroid - centroid_mem)^2 + (deviation-deviation_mem)^2)
+    iter <- iter + 1
+    centroid_mem <- centroid
+    deviation_mem <- deviation
+  }
+
+  density <- as.numeric(apply(d, 1, max))
+  return(list(params = data.frame(mu=t(centroid),sd=t(deviation)), cluster = cluster, density=density))
+}
+
+
+#' @title gausskld 
+#' @description kl divergence between 2 gaussians
+#' @param P dataframe (2 rows only) containing gaussian params. Colnames should be mu and sd
+#' @return kl divergence
+gausskld <- function(P){
+  log(P$sd[2]/P$sd[1]) + ( P$sd[1]^2 + (P$mu[1] - P$mu[2])^2 )/(2*(P$sd[2]^2)) - 1/2
+}
+
 
 ###########################################################################################
 # find the best edge trace
@@ -172,7 +222,8 @@ traceFromCannyEdges <- function(pathMap,
 #' @export
 traceFromImage <- function(fin,
                            startStopCoords = NULL,
-                           pathNet = NULL)
+                           pathNet = NULL,
+			   trailing = T)
 {
   require("mxnet")
   if(is.null(pathNet))(pathNet <- mxnet::mx.model.load(file.path(system.file("extdata", package="finFindR"),'SWA_finTest_fin'), 1000))
@@ -195,10 +246,6 @@ traceFromImage <- function(fin,
     netIn[as.logical(cropRot)]<-0
     netIn <- fillGlare(netIn, get.locations(cropRot,function(x){x==TRUE})-1)
   }
-  estExtractedSilhouette <- cimg(array(0,dim(netIn)))
-  R(estExtractedSilhouette) <- G(netIn)-R(netIn)
-  G(estExtractedSilhouette) <- B(netIn)-R(netIn)
-  B(estExtractedSilhouette) <- B(netIn)-G(netIn)
   
   netIn <- as.array(netIn)
  
@@ -208,15 +255,10 @@ traceFromImage <- function(fin,
   finImIter <- mx.io.arrayiter(netIn,
                   label=0,
                   batch.size=1)
-  # forward and backward mirror chan
-  #netIn <- append(netIn,netIn[dim(netIn)[1]:1,,,])
-  #dim(netIn) <- c(newDim[1],newDim[2],3,2)
-  #finImIter <- mx.io.arrayiter(netIn,
-  #                label=rep(0,2),
-  #                batch.size=2)
   netOutRaw <- mxnet:::predict.MXFeedForwardModel(X=finImIter,model=pathNet,ctx=mxnet::mx.cpu(),array.layout = "colmajor")
-  netOutFlat <- netOutRaw
-  netOutFlat[,,1,] <- 1-netOutRaw[,,1,] 
+  netOutThresh <- netOutRaw
+  netOutThresh[,,1,] <- 1-netOutRaw[,,1,] 
+  netOutThresh <- netOutThresh > .35
   
   #netOutFlat <- parmax(list(as.cimg(netOutMirror[,,,1]),as.cimg(netOutMirror[newDim[1]:1,,,2])))
 
@@ -224,27 +266,46 @@ traceFromImage <- function(fin,
   # channel 2 : trailingEdge
   # channel 3 : leadingEdge
 
-  # --- if no fin found
-  netThresh <- (netOutFlat[,,2,] >= .35)
-  if(!any(netThresh)){print("No fin found");return(list(NULL,NULL))}
-  #netOut <- as.cimg(netOutFlat[,,,2])
-  netThresh <- as.cimg(netThresh)
-  netblb <- label(netThresh, high_connectivity = TRUE)
-  counts <- table(netblb)
-  initBlobIndex <- as.integer(names(which(counts<=5)))
-  netblb[which(netblb %in% initBlobIndex)] <- 0
+  if(trailing){
+    edgeChan <- 2
+  }else{
+    edgeChan <- 3
+  }
+
+  #span <- rowSums(netOutThresh[,,1,1]) > 0
+  #regions <- cumsum(span[-length(span)] != span[-1]) 
+  #width <- ceiling(sum(regions==as.integer(names(which.max(table(regions)))))/20)
+
+  blobDensityX <- msum(rowSums(netOutThresh[,,edgeChan,1]),9,2)#
+
+  startEstX <- which.max(blobDensityX)
+  blobBlocks <- blobDensityX>0 & !is.na(blobDensityX)
+  regions <- cumsum(blobBlocks[-length(blobBlocks)] != blobBlocks[-1]) 
+  regions <- c(regions[1],regions)
+  xFilter <- regions==regions[startEstX]
   
-  xSpan <- as.numeric(rowSums( dilate_square((netblb>0),5) ))
+  netFiltered <- netOutThresh
+  netFiltered[!xFilter,,edgeChan,] <- 0
+  netFocus <- as.cimg(netFiltered[,,edgeChan,])
+  #netFocus <- as.cimg(netFiltered[,,1,])
+
+
+
+  if(!any(netFiltered>0)){print("No fin found");return(list(NULL,NULL))}
+  
+  xSpan <- as.numeric(rowSums( dilate_square((netFocus),15) ))
   xSpan[is.na(xSpan)] <- 0
-  xSpan <- range(which(xSpan>mean(xSpan)/2))
-  ySpan <- as.numeric(colSums( dilate_square((netblb>0),5) ))
+  xSpan <- range(which(xSpan>1))
+  ySpan <- as.numeric(colSums( dilate_square((netFocus),15) ))
   ySpan[is.na(ySpan)] <- 0
-  ySpan <- range(which(ySpan>mean(ySpan)/2))
+  ySpan <- range(which(ySpan>1))
   
-  #netOut <- as.cimg(netOut[c(xSpan[1]:xSpan[2]),c(ySpan[1]:ySpan[2]),,])
-  #netOut <- as.cimg(netOutFlat[c(xSpan[1]:xSpan[2]),c(ySpan[1]:ySpan[2]),,1])
-  #browser()
-  netOut <- as.cimg(netOutFlat[c(xSpan[1]:xSpan[2]),c(ySpan[1]:ySpan[2]),1,])
+  netOut <- netOutRaw
+  #netOut[!xFilter,,edgeChan,] <- 0
+  netOut <- netOut[c(xSpan[1]:xSpan[2]),c(ySpan[1]:ySpan[2]),,]
+  netOut[,,1] <- 1-netOut[,,1] 
+  netFiltered <- netFiltered[c(xSpan[1]:xSpan[2]),c(ySpan[1]:ySpan[2]),,]
+
   
   # --- crop fin to edge
   
@@ -258,8 +319,8 @@ traceFromImage <- function(fin,
     resizeSpanY <- c(min(startStopCoords[[1]][2]-1,startStopCoords[[2]][2]-1,floor(resizeSpanY[1])),
                      max(startStopCoords[[1]][2]+1,startStopCoords[[2]][2]+1,ceiling(resizeSpanY[2])))
   }
-  fin <- suppressWarnings(as.cimg(fin[ floor(resizeSpanX[1]):ceiling(resizeSpanX[2]) ,
-                                       floor(resizeSpanY[1]):ceiling(resizeSpanY[2]),,]))
+  fin <- suppressWarnings(as.cimg(fin[ ceiling(resizeSpanX[1]):floor(resizeSpanX[2]) ,
+                                       ceiling(resizeSpanY[1]):floor(resizeSpanY[2]),,]))
   
   resizedFin <- constrainSizeFinImage(fin)
 
@@ -268,7 +329,7 @@ traceFromImage <- function(fin,
   
   cumuResize <- (netOutResizeFactors*resizeFactor)
   
-  edgeFilter <- resize( netOut ,size_x = width(fin) , size_y = height(fin),interpolation_type = 3)/max(netOut)
+  edgeFilter <- resize( as.cimg(netOut[,,1]) ,size_x = width(fin) , size_y = height(fin),interpolation_type = 3)/max(netOut)
   
   if(!any(netOut>.5))
   {
@@ -284,8 +345,9 @@ traceFromImage <- function(fin,
   #                label=0,
   #                batch.size=1)
   #netOut <- mxnet:::predict.MXFeedForwardModel(X=finCutIter,model=pathNet,ctx=mxnet::mx.cpu(),array.layout = "colmajor")
-  cannyFilter <- isoblur(resize( netOut-.25 ,size_x = width(fin) , size_y = height(fin),interpolation_type = 6),yRange/1000)/max(netOut)
-  
+  #NOTE: temporary solution
+  #cannyFilter <- isoblur(resize( netOut-.25 ,size_x = width(fin) , size_y = height(fin),interpolation_type = 6),yRange/1000)/max(netOut)
+  cannyFilter <- resize( as.cimg(netOut) ,size_x = width(fin) , size_y = height(fin),interpolation_type = 3)
   
   
   dilateFactor <- ceiling(yRange/200)
@@ -311,15 +373,15 @@ traceFromImage <- function(fin,
   }
   
   print("smoothing separation")
-  fin <- erode_square(fin,dilateFactor )
-  fin <- dilate_square(fin,dilateFactor )
+  #fin <- erode_square(fin,dilateFactor )
+  #fin <- dilate_square(fin,dilateFactor )
   
-  estImageMean <- mean(netIn)
-  estImageSplit <- netIn>estImageMean
-  blurFactor <- min(sd(netIn[estImageSplit]),sd(netIn[!estImageSplit]) )
-  
+  #estImageMean <- mean(netIn)
+  #estImageSplit <- netIn>estImageMean
+  #blurFactor <- min(sd(netIn[estImageSplit]),sd(netIn[!estImageSplit]) )
+  #
   fin <- isoblur(fin,ceiling(yRange/800))
-  fin <- medianblur(fin,ceiling(yRange/80),blurFactor)
+  #fin <- medianblur(fin,ceiling(yRange/80),blurFactor)
   
   print("forground-background complete")
 
@@ -327,48 +389,30 @@ traceFromImage <- function(fin,
   # Determine if image has a strong silhouette(bimodal brightness)
   ###############################################################################################
   
-  #for estimating bimodality
-  silhouette = TRUE
-  bimodalThreshold = .25#.2-.35
-  
-  finMean <- mean(netIn)
-  separationEstimation <- as.logical(netIn>finMean)
-  upperFinSD <- sd(netIn[separationEstimation])
-  lowerFinSD <- sd(netIn[!separationEstimation])
-  
-  #we count how many pixels fall within the range
-  bimodFin <- sum(netIn > finMean-lowerFinSD & netIn < finMean+upperFinSD)/length(netIn)
+  edgeIndex <- as.logical(resize(dilate_square(as.cimg(netFiltered[,,edgeChan]),7), size_x=width(netIn), size_y=height(netIn), interpolation_type=2))
 
-  #G(fin)-R(fin)-B(fin)/15
-  extractedSilhouette <- cimg(array(0,dim(fin)))
-  R(extractedSilhouette) <- G(fin)-R(fin)
-  G(extractedSilhouette) <- B(fin)-R(fin)
-  B(extractedSilhouette) <- B(fin)-G(fin)
-  
-  estimatedSilhouette <- parmax.abs(list(R(estExtractedSilhouette),
-                                         G(estExtractedSilhouette),
-                                         B(estExtractedSilhouette)))
-  
+  dim(netIn) <- dim(netIn)[c(1,2,4,3)]
+  Gfin <- G(netIn)[edgeIndex]
+  Bfin <- B(netIn)[edgeIndex]
+  Rfin <- R(netIn)[edgeIndex]
+
+
+  diff1 <- Gfin-Rfin
+  diff2 <- Bfin-Rfin
+  diff3 <- Bfin-Gfin
+
+  estimatedSilhouette <- as.numeric(apply(cbind(diff1,diff2,diff3), 1, max)) 
   #hist(estimatedSilhouette,1000)
-  estMiddle <- mean(estimatedSilhouette)#0
-  estForgoundBackgroundSplit <- as.logical(estimatedSilhouette>estMiddle)
-  upperExtractedSilhouetteSD <- sd(estimatedSilhouette[estForgoundBackgroundSplit])
-  lowerExtractedSilhouetteSD <- sd(estimatedSilhouette[!estForgoundBackgroundSplit])
+
+  colTest = knn(as.numeric(estimatedSilhouette),2)
+  lumTest = knn(as.numeric(netIn[rep(edgeIndex,3) ]),2)
+  #plot(as.numeric(estimatedSilhouette),col=colTest$cluster,pch='.')
   
-  # now we find out if the brightness distribution is bimodal
-  bimodExtractedSilhouette <- sum(estimatedSilhouette > estMiddle-lowerExtractedSilhouetteSD & 
-                                  estimatedSilhouette < estMiddle+upperExtractedSilhouetteSD)/length(estimatedSilhouette)
+  #silhouette = sum(colTest$density) < sum(lumTest$density)
+  silhouette = (gausskld(colTest$params)+gausskld(colTest$params[c(2,1),])) < (gausskld(lumTest$params)+gausskld(lumTest$params[c(2,1),]))
+  print(paste("silhouette:",silhouette))
   
-  # after all this processing, if the estimatedSilhouette distribution is strongly bimodal and the origional image is not, we use estimatedSilhouette
-  if (bimodExtractedSilhouette < bimodalThreshold && 
-      bimodExtractedSilhouette < bimodFin)
-  {
-    silhouette = FALSE
-  }
-  
-  
-  
-  
+
   ################################################################################
   # generate the canny edge image
   ################################################################################
@@ -387,23 +431,29 @@ traceFromImage <- function(fin,
   dy <- flatten(list(R(dy),G(dy),B(dy)))
   
   angleGrad <- atan(dy/dx)
-  
   sorbel <- abs(dx)+abs(dy)
   
   
     
-  extractedSilhouetteDX <- imgradient(extractedSilhouette,"x")
-  extractedSilhouetteDX <- isoblur(extractedSilhouetteDX,yRange/600)#400
-  extractedSilhouetteDX <- flatten(list(R(extractedSilhouetteDX),G(extractedSilhouetteDX),B(extractedSilhouetteDX)))
-  
-  extractedSilhouetteDY <- imgradient(extractedSilhouette,"y")
-  extractedSilhouetteDY <- isoblur(extractedSilhouetteDY,yRange/600)
-  extractedSilhouetteDY <- flatten(list(R(extractedSilhouetteDY),G(extractedSilhouetteDY),B(extractedSilhouetteDY)))
-  
-  angleColor <- atan(extractedSilhouetteDY/extractedSilhouetteDX)
-    
-  if(silhouette == FALSE)
+  if(!silhouette)
   {
+    extractedSilhouette <- cimg(array(0,dim(fin)))
+    R(extractedSilhouette) <- G(fin)-R(fin)
+    G(extractedSilhouette) <- B(fin)-R(fin)
+    B(extractedSilhouette) <- B(fin)-G(fin)
+
+    extractedSilhouetteDX <- imgradient(extractedSilhouette,"x")
+    extractedSilhouetteDX <- isoblur(extractedSilhouetteDX,yRange/600)#400
+    extractedSilhouetteDX <- flatten(list(R(extractedSilhouetteDX),G(extractedSilhouetteDX),B(extractedSilhouetteDX)))
+    
+    extractedSilhouetteDY <- imgradient(extractedSilhouette,"y")
+    extractedSilhouetteDY <- isoblur(extractedSilhouetteDY,yRange/600)
+    extractedSilhouetteDY <- flatten(list(R(extractedSilhouetteDY),G(extractedSilhouetteDY),B(extractedSilhouetteDY)))
+    
+    angleColor <- atan(extractedSilhouetteDY/extractedSilhouetteDX)
+
+    #####################
+
     extractedSorbel <- abs(extractedSilhouetteDX)+abs(extractedSilhouetteDY)
     
     qExtractedSorbel <- quantile(extractedSorbel,.97)
@@ -414,11 +464,12 @@ traceFromImage <- function(fin,
     
     sorbel <- average(list(sorbel/qSorbel,extractedSorbel/qExtractedSorbel))
   }
+
+
   sorbelOri <- sorbel
-  sorbel <- (1/(1+exp(-10*(cannyFilter) )))*sorbel
+  sorbel <- (1/(1+exp(-10*as.cimg(cannyFilter[,,,1]) )))*sorbel
   angle <- atan(dy/dx)
 
-  
   rawEdges <- extractEdgeMap(sorbel,angle)
   rawEdges[1,,,] <- 0
   rawEdges[,1,,] <- 0
@@ -443,77 +494,42 @@ traceFromImage <- function(fin,
   
   if(is.null(startStopCoords))
   {
-    print("estimating start stop points")
-    xDensity <- approx(as.numeric(msum(rowSums(netOut),7,2)) ,n=width(fin))$y
-    startEstX <- which((xDensity)==max((xDensity),na.rm = TRUE))[1]
-    
-    #blobFilter <- resize(dilate_square(netOut,3),size_x = width(fin) , size_y = height(fin),interpolation_type = 2)/max(netOut)
-    #splitBlobs <- ( (netOut/max(netOut))>.5 )
-    
-    netBlobOri <- dilate_rect( ((netOut/max(netOut))>.35) ,sx=3,sy=3)
-    
-    netBlobOri[1,,,] <- 0
-    netBlobOri[,1,,] <- 0
-    netBlobOri[width(netBlobOri),,,] <- 0
-    netBlobOri[,height(netBlobOri),,] <- 0
-    netBlobOri <- label( netBlobOri, high_connectivity = T)
-    
-    netBlob <- resize(netBlobOri,size_x = width(fin) , size_y = height(fin),interpolation_type = 1)
-    
-    
-    
-    blobLabelsOfInterest <- unique(netBlobOri)
-    blobScore <- NULL
-    for(labeledValue in blobLabelsOfInterest[-1])
-    {
-      blobScore <- append(blobScore,sum( netOut*(netBlobOri==labeledValue) ))
-    }
-    names(blobScore) <- blobLabelsOfInterest[-1]
+    print("finding start stop")
 
-    blobXposition <- NULL
-    for(labeledValue in blobLabelsOfInterest[-1])
-    {
-      blobXposition <- append(blobXposition,abs(startEstX - mean(which(rowSums(netBlob==labeledValue)>0))))
+    cannyFilterThresh <- (cannyFilter > .35)
+
+    ## START
+    trail <- get.locations(as.cimg(netOut[,,2]>.35),as.logical)
+    lead <- get.locations(as.cimg(netOut[,,3]>.35),as.logical)
+    trailTarget <- trail[which(trail$y < (min(trail$y)+2)),]
+    leadTarget <- lead[which(trail$y < (min(trail$y)+2)),]
+    if(trailing){
+    	candidateStarts <- rbind(trailTarget, leadTarget,leadTarget,leadTarget)
+    }else{
+    	candidateStarts <- rbind(trailTarget,trailTarget,trailTarget,leadTarget)
     }
-    blobXposition <- 1/(blobXposition)
-    names(blobXposition) <- blobLabelsOfInterest[-1]
+    startPoint <- as.integer(round(colMeans(candidateStarts,na.rm=T))[1:2])
+
+    startMap <- array(0,dim(netOut)[1:2])
+    startMap[startPoint[1],startPoint[2]] <- 1
+    startMapFull <- resize( as.cimg(startMap) ,size_x = width(minimalEdge) , size_y = height(minimalEdge),interpolation_type = 3)
+    targetPointVal = max(startMapFull)  
+    startPoint <- as.integer(get.locations(startMapFull,function(x)x==targetPointVal)[1:2])
     
-    targetBlob <- as.integer(names(which.max(blobScore*blobXposition)))
-    
-    
-    constrainedHighlight <- edgeFilter*(netBlob==targetBlob)
-    constrainedHighlight <- constrainedHighlight/max(constrainedHighlight)
-    startHighlight <- as.array(constrainedHighlight * (sorbelOri*minimalEdge) )#dilate_square(sorbel*minimalEdge,3))
-    
-    thresh <- colSums(startHighlight)
-    thresh <- thresh[thresh>0]
-    thresh <- quantile(thresh,.05)#mean(thresh)/3
-    
-    startY <- min(which(colSums(startHighlight) > thresh))
-    startOptions <- startHighlight[,startY,,]
-    startX <- which.max(startOptions)
-    startPoint <- c(startX,startY)
-    
-    
-    pathEdge <- as.matrix(startHighlight * ( (netBlob==targetBlob) & minimalEdge ) )
-    edgeLim <- msum(colSums(pathEdge) ,yRange/25,1)
-    edgeLim[is.na(edgeLim)] <- 0
-    
-    finMiddle <- ceiling(mean(which(edgeLim>0)))
-    limitY <- finMiddle+min(which(edgeLim[finMiddle:length(edgeLim)]==0),na.rm = T)
-    limitY <- min(limitY,height(fin),na.rm = T)
-    
-    endY <- max(which(colSums(pathEdge[,1:limitY])>thresh))
-    endX <- round(mean(which.max(pathEdge[,endY])))
-    endPoint <- c(round(endX),floor(endY))
+    ## END
+    endBlobs <- resize( dilate_square(as.cimg(netFiltered[,,edgeChan]),3) ,size_x = width(minimalEdge) , size_y = height(minimalEdge),interpolation_type = 1)
+    candidateEnds <- get.locations(endBlobs*minimalEdge,as.logical)[1:2]
+    endPoint <- as.integer(candidateEnds[which.max(sqrt(rowSums(t(t(candidateEnds)-startPoint)^2))),])
+
     
     if(anyNA(startPoint) || anyNA(endPoint) || any(c(startPoint,endPoint)==0))
     {
-      print(paste0("from: ",startPoint[1],",",startPoint[2]," -- to: ",endPoint[1],",",endPoint[2] ))
+      print(paste0("from: ",startPoint[1],",",startPoint[2],"   to: ",endPoint[1],",",endPoint[2] ))
       return(list(NULL,NULL))
     }
     
     endProxRatio <- 10
+    #endProxRatio <- 10
   }else{
     print("using user provided start stops")
     print(startStopCoords)
@@ -537,25 +553,23 @@ traceFromImage <- function(fin,
   affineFactor <- c(resizeSpanX[1],resizeSpanY[1])
   
   # pathDF <- traceFromCannyEdges(as.matrix(parmax(list(pathMap/max(pathMap),as.cimg(pathMap>(mean(pathMap[pathMap>0.0])/2.0) ))) ), #as.matrix(pathMap+pathMap>mean(pathMap[pathMap>0]) ),
-  #                                   round(startPoint),
-  #                                   round(endPoint),
-  #                                   endProxRatio)
   pathDF <- traceFromCannyEdges(as.matrix((pathMap/(1.6*median(pathMap[pathMap>0])))), #as.matrix(pathMap+pathMap>mean(pathMap[pathMap>0]) ),
                                 round(startPoint),
                                 round(endPoint),
                                 endProxRatio)
   
   annulus <- extractAnnulus(fin,pathDF[,1],pathDF[,2])
+  #annulus <- NULL
   plotpath <- cbind(round(pathDF[,1]/resizeFactor+affineFactor[1] ),
                     round(pathDF[,2]/resizeFactor+affineFactor[2]))
   
   # pathMap <<- pathMap
   # plot(pathMap)
-
   # par(new=TRUE)
   # points(pathDF[,1],pathDF[,2],pch=".",col='red', ann=FALSE, asp = 0)
   
-  traceData <- list(annulus,plotpath)
-  names(traceData) <- c("annulus","coordinates")
+  traceData <- list(annulus,plotpath,dim(resizedFin$fin))
+  names(traceData) <- c("annulus","coordinates","dim")
   return(traceData)
 }
+
