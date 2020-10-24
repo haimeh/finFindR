@@ -256,8 +256,6 @@ traceFromImage <- function(fin,
                   label=0,
                   batch.size=1)
   netOutRaw <- mxnet:::predict.MXFeedForwardModel(X=finImIter,model=pathNet,ctx=mxnet::mx.cpu(),array.layout = "colmajor")
-  plot(as.cimg(netOutRaw[,,-1,]))
-  Sys.sleep(.1)
   
   #netOutFlat <- parmax(list(as.cimg(netOutMirror[,,,1]),as.cimg(netOutMirror[newDim[1]:1,,,2])))
 
