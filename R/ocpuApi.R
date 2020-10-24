@@ -17,35 +17,39 @@
 #' \code{extractAnnulus}
 #' which collects image data used for identification.
 #' Both the coordinates and the image annulus are then returned.
-#' @param imageobj character vector which denots image file "directory/finImage.JPG"
+#' @param imageobj character vector which denotes image file "directory/finImage.JPG"
 #' @return Value of type list containing:
 #' "hash" vector specifying an individual
 #' "coordinates" a matrix of coordinates
 #' @export
 
-hashFromImage <- function(imageobj)
+hashFromImage <- function(imageobj, pathNet=NULL, hashNet=NULL)
 {
   if(class(imageobj)=="character")
   {
-    traceResults <- traceFromImage(fin=load.image(imageobj),
-                                   startStopCoords = NULL,
-                                   pathNet = NULL)
-    traceResult <- traceToHash(list(traceResults$annulus))
-    trailingEdge <- traceResults$coordinates
-    return(list("hash"=traceResult,"coordinates"=trailingEdge))
-  }else{
-    traceImg <- list()
-    for (imageName in imageobj)
-    {
-      traceResults <- traceFromImage(fin=load.image(imageName),
-                     startStopCoords = NULL,
-                     pathNet = NULL)
-      traceImg <- append(traceImg,list(traceResults$annulus))
-      
+    if(length(imageobj)==1){
+      traceResults <- traceFromImage(fin=load.image(imageobj),
+                                     startStopCoords = NULL,
+                                     pathNet = pathNet)
+      if(is.null(traceResults[[1]]) | is.null(traceResults[[2]])){return(traceResults)}
+      hashResult <- traceToHash(traceData=list(traceResults$annulus), mxnetModel=hashNet)
+      trailingEdge <- traceResults$coordinates
+      return(list("hash"=hashResult,"coordinates"=trailingEdge))
+    }else{
+      traceImg <- list()
+      for (imageName in imageobj)
+      {
+        print(imageName)
+        traceResults <- traceFromImage(fin=load.image(imageName),
+                       startStopCoords = NULL,
+                       pathNet = pathNet)
+        traceImg <- append(traceImg,list(traceResults$annulus))
+        
+      }
       names(traceImg) <- as.character(imageobj)
+      return(as.data.frame(traceToHash(traceData=traceImg, mxnetModel=hashNet)))
     }
-    return(as.data.frame(traceToHash(traceImg)))
-  }
+  }else{stop()}
 }
 
 #' @title hashFromImageAndEdgeCoord 

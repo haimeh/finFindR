@@ -148,7 +148,7 @@ traceFromCannyEdges <- function(pathMap,
                      radiusLimit/prox)#proximity for completion
     
     
-    if(length(path)<100){return(list(NULL,NULL))}
+    if(length(path)<100){Warning("Path length FAILURE");return(list(NULL,NULL))}
     
     # this section transforms the path vector found by the findPath function into coordinates for r to plot
     stepX=c( 0, 1, 1, 1, 0, -1, -1, -1)
@@ -169,20 +169,20 @@ traceFromCannyEdges <- function(pathMap,
     plotpath <- plotpath[pathLength:1,]
     
     #make sure we select tiptop
-    tipValues <- head(sort(plotpath[,2],decreasing = F),5)
-    tipIndex <- max(which(plotpath[,2] %in% tipValues ))
-    plotpath <- plotpath[tipIndex:nrow(plotpath),]
+    #tipValues <- head(sort(plotpath[,2],decreasing = F),5)
+    #tipIndex <- max(which(plotpath[,2] %in% tipValues ))
+    #plotpath <- plotpath[tipIndex:nrow(plotpath),]
     
-    #remove top sprew
-    #startCut <- 1
-    sprewX <- abs(diff(plotpath[2:nrow(plotpath),2]))
-    sprewX[is.na(sprewX)] <- 0
-    sprewY <- abs(diff(plotpath[2:nrow(plotpath),1]))
-    sprewY[is.na(sprewY)] <- 0
-    sprew <- sprewX|sprewY
-    startCut <- min(which(msum(n=5,sprew)/5 > 0),na.rm = T)
+    ##remove top sprew
+    startCut <- 5
+    #sprewX <- abs(diff(plotpath[2:nrow(plotpath),2]))
+    #sprewX[is.na(sprewX)] <- 0
+    #sprewY <- abs(diff(plotpath[2:nrow(plotpath),1]))
+    #sprewY[is.na(sprewY)] <- 0
+    #sprew <- sprewX|sprewY
+    #startCut <- min(which(msum(n=5,sprew)/5 > 0),na.rm = T)
     
-    #remove bottom sprew
+    ##remove bottom sprew
     sprew <- abs(diff(plotpath[seq_len(nrow(plotpath)-10),1]))
     sprew[is.na(sprew)] <- 0
     endCut <- max(which(msum(n=20,sprew)/20 > 0),na.rm = T)
@@ -226,12 +226,12 @@ traceFromImage <- function(fin,
 			   trailing = T)
 {
   require("mxnet")
-  if(is.null(pathNet))(pathNet <- mxnet::mx.model.load(file.path(system.file("extdata", package="finFindR"),'SWA_fin3_fin'), 0700))
+  if(is.null(pathNet))(pathNet <- mxnet::mx.model.load(file.path(system.file("extdata", package="finFindR"),'SWA_finTrace_fin'), 1000))
   if(!is.cimg(fin)){stop("fin must be Jpeg of type cimg")}
   if(!("MXFeedForwardModel" %in% class(pathNet))){stop("network must be of class MXFeedForwardModel")}
   
   if(max(fin)>1){fin <- fin/255}
-  finOG <- fin
+  finOri <- fin
   
   #### --- Highlight Trailing Edge --- ####
   netIn <- shrinkDomDim(fin,200)
@@ -256,9 +256,8 @@ traceFromImage <- function(fin,
                   label=0,
                   batch.size=1)
   netOutRaw <- mxnet:::predict.MXFeedForwardModel(X=finImIter,model=pathNet,ctx=mxnet::mx.cpu(),array.layout = "colmajor")
-  netOutThresh <- netOutRaw
-  netOutThresh[,,1,] <- 1-netOutRaw[,,1,] 
-  netOutThresh <- netOutThresh > .35
+  plot(as.cimg(netOutRaw[,,-1,]))
+  Sys.sleep(.1)
   
   #netOutFlat <- parmax(list(as.cimg(netOutMirror[,,,1]),as.cimg(netOutMirror[newDim[1]:1,,,2])))
 
@@ -268,47 +267,42 @@ traceFromImage <- function(fin,
 
   if(trailing){
     edgeChan <- 2
+    notEdgeChan <- 3
   }else{
     edgeChan <- 3
+    notEdgeChan <- 2
   }
 
-  #span <- rowSums(netOutThresh[,,1,1]) > 0
-  #regions <- cumsum(span[-length(span)] != span[-1]) 
-  #width <- ceiling(sum(regions==as.integer(names(which.max(table(regions)))))/20)
 
-  blobDensityX <- msum(rowSums(netOutThresh[,,edgeChan,1]),9,2)#
 
-  startEstX <- which.max(blobDensityX)
-  blobBlocks <- blobDensityX>0 & !is.na(blobDensityX)
-  regions <- cumsum(blobBlocks[-length(blobBlocks)] != blobBlocks[-1]) 
-  regions <- c(regions[1],regions)
-  xFilter <- regions==regions[startEstX]
+  ###########################################################################################
+  # get fin edge directions
+  #########################################################################################
+
+  netFiltered <- netOutRaw
+  netFiltered[,,1,] <- 1-netFiltered[,,1,] 
+  netFocus <- dilate_square(netFiltered[,,edgeChan,,drop=F]>.35, 25)
+
+  if(!any(netFocus>0)){warning("NO FIN FOUND");return(list(NULL,NULL))}
   
-  netFiltered <- netOutThresh
-  netFiltered[!xFilter,,edgeChan,] <- 0
-  netFocus <- as.cimg(netFiltered[,,edgeChan,])
-  #netFocus <- as.cimg(netFiltered[,,1,])
-
-
-
-  if(!any(netFiltered>0)){print("No fin found");return(list(NULL,NULL))}
-  
-  xSpan <- as.numeric(rowSums( dilate_square((netFocus),15) ))
+  ###########################################################################################
+  # crop fin to edge
+  #########################################################################################
+  xSpan <- as.numeric(rowSums( round(netFocus) ))
+  if(length(xSpan)==0 | all(xSpan==0) | all(xSpan>100) | any(is.infinite(xSpan)) | any(is.na(xSpan)) | any(is.nan(xSpan)))browser()
   xSpan[is.na(xSpan)] <- 0
   xSpan <- range(which(xSpan>1))
-  ySpan <- as.numeric(colSums( dilate_square((netFocus),15) ))
+  ySpan <- as.numeric(colSums( netFocus))
   ySpan[is.na(ySpan)] <- 0
   ySpan <- range(which(ySpan>1))
   
-  netOut <- netOutRaw
-  #netOut[!xFilter,,edgeChan,] <- 0
-  netOut <- netOut[c(xSpan[1]:xSpan[2]),c(ySpan[1]:ySpan[2]),,]
-  netOut[,,1] <- 1-netOut[,,1] 
   netFiltered <- netFiltered[c(xSpan[1]:xSpan[2]),c(ySpan[1]:ySpan[2]),,]
+  
 
-  
-  # --- crop fin to edge
-  
+  ###########################################################################################
+  # resize trim color
+  #########################################################################################
+
   resizeSpanX <- netOutResizeFactors[1]*xSpan
   resizeSpanY <- netOutResizeFactors[2]*ySpan
   
@@ -329,13 +323,13 @@ traceFromImage <- function(fin,
   
   cumuResize <- (netOutResizeFactors*resizeFactor)
   
-  edgeFilter <- resize( as.cimg(netOut[,,1]) ,size_x = width(fin) , size_y = height(fin),interpolation_type = 3)/max(netOut)
+  edgeFilter <- resize( as.cimg(netFiltered[,,1]) ,size_x = width(fin) , size_y = height(fin),interpolation_type = 3)/max(netFiltered)
   
-  if(!any(netOut>.5))
+  if(!any(netFiltered>.5))
   {
-    yRange <- round(diff(range(which((colSums(netOut/max(netOut) >.5)>0))))*cumuResize[2] )
+    yRange <- round(diff(range(which((colSums(netFiltered/max(netFiltered) >.5)>0))))*cumuResize[2] )
   }else{
-    yRange <- round(diff(range(which((colSums(netOut>.5)>0))))*cumuResize[2] )
+    yRange <- round(diff(range(which((colSums(netFiltered>.5)>0))))*cumuResize[2] )
   }
 
   # here we create the canny weighting image to constrain what edges are preserved
@@ -347,7 +341,13 @@ traceFromImage <- function(fin,
   #netOut <- mxnet:::predict.MXFeedForwardModel(X=finCutIter,model=pathNet,ctx=mxnet::mx.cpu(),array.layout = "colmajor")
   #NOTE: temporary solution
   #cannyFilter <- isoblur(resize( netOut-.25 ,size_x = width(fin) , size_y = height(fin),interpolation_type = 6),yRange/1000)/max(netOut)
-  cannyFilter <- resize( as.cimg(netOut) ,size_x = width(fin) , size_y = height(fin),interpolation_type = 3)
+  #cannyFilter <- resize( as.cimg(netOut) ,size_x = width(fin) , size_y = height(fin),interpolation_type = 3)
+  #cannyFilter <- resize( as.cimg((netFiltered[,,1]) - (netFiltered[,,4]) + (netFiltered[,,edgeChan]*netFiltered[,,4]) ) ,size_x = width(fin) , size_y = height(fin),interpolation_type = 3)
+  cannyFilter <- resize( as.cimg((netFiltered[,,1]) - (netFiltered[,,4]) ) ,size_x = width(fin) , size_y = height(fin),interpolation_type = 3)
+  cannyFilterTip <- resize( as.cimg(netFiltered[,,1]) ,size_x = width(fin) , size_y = height(fin),interpolation_type = 3)
+  cannyFilterMax <- max(cannyFilter)
+  if(max(cannyFilter)<.9){cannyFilter <- cannyFilter/cannyFilterMax}
+
   
   
   dilateFactor <- ceiling(yRange/200)
@@ -358,7 +358,7 @@ traceFromImage <- function(fin,
   if(glareBound > .95)# && glareBound < 1)
   {
     print("removing glare")
-    highlightBlob <-threshold(fin,.97)#90
+    highlightBlob <- threshold(fin,.97)#90
     glare <- threshold(fin,.99)
     
     highlightBlob <- label(highlightBlob)
@@ -459,15 +459,17 @@ traceFromImage <- function(fin,
     qExtractedSorbel <- quantile(extractedSorbel,.97)
     qSorbel <- quantile(sorbel,.97)
     
-    dx <- average(list(extractedSilhouetteDX/qExtractedSorbel,dx/qSorbel))
-    dy <- average(list(extractedSilhouetteDY/qExtractedSorbel,dy/qSorbel))
+    dx <- average(list(extractedSilhouetteDX/qExtractedSorbel, dx/qSorbel))
+    dy <- average(list(extractedSilhouetteDY/qExtractedSorbel, dy/qSorbel))
     
-    sorbel <- average(list(sorbel/qSorbel,extractedSorbel/qExtractedSorbel))
+    sorbel <- average(list(sorbel/qSorbel, extractedSorbel/qExtractedSorbel))
   }
 
 
   sorbelOri <- sorbel
-  sorbel <- (1/(1+exp(-10*as.cimg(cannyFilter[,,,1]) )))*sorbel
+  #sorbel <- (1/(1+exp(-10*as.cimg(cannyFilter[,,1,1]) )))*sorbel
+  #sorbel <- (1/(1+exp(-10* cannyFilter )))*sorbel
+  sorbel <- (cannyFilterTip * sorbel) + (.1*cannyFilter) + (.1*sorbel)
   angle <- atan(dy/dx)
 
   rawEdges <- extractEdgeMap(sorbel,angle)
@@ -496,35 +498,95 @@ traceFromImage <- function(fin,
   {
     print("finding start stop")
 
-    cannyFilterThresh <- (cannyFilter > .35)
+    #cannyFilterThresh <- (cannyFilter > .35)
 
-    ## START
-    trail <- get.locations(as.cimg(netOut[,,2]>.35),as.logical)
-    lead <- get.locations(as.cimg(netOut[,,3]>.35),as.logical)
-    trailTarget <- trail[which(trail$y < (min(trail$y)+2)),]
-    leadTarget <- lead[which(trail$y < (min(trail$y)+2)),]
-    if(trailing){
-    	candidateStarts <- rbind(trailTarget, leadTarget,leadTarget,leadTarget)
+
+    ## START ###########################
+    # --- find start point
+    netFiltered[1,,] <- 0
+    netFiltered[,1,] <- 0
+    netFiltered[width(netFiltered),,] <- 0
+    netFiltered[,height(netFiltered),] <- 0
+    netFilteredThresh <- netFiltered>.35
+
+    startRegion <- dilate_square(as.cimg(netFilteredThresh[,,4]),9)
+    startRegion[1,,,] <- 0
+    startRegion[,1,,] <- 0
+    startRegion[width(netFiltered),,,] <- 0
+    startRegion[,height(netFiltered),,] <- 0
+
+    startBlobs <- label(startRegion)
+    if(any(startRegion)){
+      blobScore <- list()
+      for(i in unique(as.integer(startBlobs))[-1]){
+      	blobScore[i] <- sum((netFiltered[,,4])[startBlobs == i])
+      }
+
+      startBlobs[startBlobs!=which.max(as.numeric(blobScore))] <- 0
+      candidateStarts <- get.locations(startRegion,as.logical)[c(1,2)]
+
+      startVals <- (netFiltered[,,edgeChan]+netFiltered[,,1])[data.matrix(candidateStarts)]
+      startPointSmall <- as.integer(round(colSums(t(t(candidateStarts)*startVals))/sum(startVals)))
+
     }else{
-    	candidateStarts <- rbind(trailTarget,trailTarget,trailTarget,leadTarget)
+      print("Nerual Net failed to find start, assuming at the top of edges")
+      trail <- get.locations(as.cimg(netFiltered[,,2]>.35),as.logical)
+      lead <- get.locations(as.cimg(netFiltered[,,3]>.35),as.logical)
+      trailTarget <- trail[which(trail$y < (min(trail$y)+2)),]
+      leadTarget <- lead[which(trail$y < (min(trail$y)+2)),]
+      if(trailing){
+      	candidateStarts <- rbind(trailTarget, leadTarget,leadTarget,leadTarget)
+      }else{
+      	candidateStarts <- rbind(trailTarget,trailTarget,trailTarget,leadTarget)
+      }
+      startPointSmall <- as.integer(round(colMeans(candidateStarts,na.rm=T))[1:2])
     }
-    startPoint <- as.integer(round(colMeans(candidateStarts,na.rm=T))[1:2])
 
-    startMap <- array(0,dim(netOut)[1:2])
-    startMap[startPoint[1],startPoint[2]] <- 1
+
+
+    startMap <- array(0,dim(netFiltered)[1:2])
+    startMap[startPointSmall[1],startPointSmall[2]] <- 1
     startMapFull <- resize( as.cimg(startMap) ,size_x = width(minimalEdge) , size_y = height(minimalEdge),interpolation_type = 3)
     targetPointVal = max(startMapFull)  
-    startPoint <- as.integer(get.locations(startMapFull,function(x)x==targetPointVal)[1:2])
+    startPoint <- as.integer(colMeans(get.locations(startMapFull,function(x)x>=targetPointVal)[1:2]))
     
-    ## END
-    endBlobs <- resize( dilate_square(as.cimg(netFiltered[,,edgeChan]),3) ,size_x = width(minimalEdge) , size_y = height(minimalEdge),interpolation_type = 1)
-    candidateEnds <- get.locations(endBlobs*minimalEdge,as.logical)[1:2]
-    endPoint <- as.integer(candidateEnds[which.max(sqrt(rowSums(t(t(candidateEnds)-startPoint)^2))),])
 
+
+
+    ## END #############################
+    # --- find end point
+    endBlobs <- resize( as.cimg(netFiltered[,,edgeChan]) ,size_x = width(minimalEdge) , size_y = height(minimalEdge),interpolation_type = 1)
+    candidateEnds <- get.locations((endBlobs>.3)*minimalEdge,as.logical)[1:2]
+
+    edgeLoc = as.matrix(get.locations(as.cimg(netFilteredThresh[,,edgeChan]),as.logical)[c(1,2)])
+    edgeVal <- (netFiltered[,,edgeChan])[edgeLoc]
+    edgeLimitSmall <- colSums(t(t(edgeLoc)*edgeVal))/sum(edgeVal)
+    edgeLimit <- edgeLimitSmall * netOutResizeFactors * (dim(fin)/dim(finOri))[1:2]  #cumuResize#*rev(netOutResizeFactors)
+
+
+    #otherEdgeLoc = as.matrix(get.locations(as.cimg(netFilteredThresh[,,notEdgeChan]),as.logical)[c(1,2)])
+    #otherEdgeVal <- (netFiltered[,,notEdgeChan])[otherEdgeLoc]
+    #otherEdgeLimitSmall <- colSums(t(t(otherEdgeLoc)*otherEdgeVal))/sum(otherEdgeVal)
+    #otherEdgeLimit <- otherEdgeLimitSmall * netOutResizeFactors * (dim(fin)/dim(finOri))[1:2]#cumuResize#rev(netOutResizeFactors)
+
+    otherEdgeLoc = as.matrix(get.locations(as.cimg(netOutRaw[,,notEdgeChan,]>.35),as.logical)[c(1,2)])
+    otherEdgeVal <- (netOutRaw[,,notEdgeChan,])[otherEdgeLoc]
+    otherEdgeLimitSmall <- colSums(t(t(otherEdgeLoc)*otherEdgeVal))/sum(otherEdgeVal) - c(xSpan[1],ySpan[2])
+    otherEdgeLimit <- otherEdgeLimitSmall * netOutResizeFactors * (dim(fin)/dim(finOri))[1:2]
+
+
+    endPoint <- as.integer(candidateEnds[which.max(  
+						   1 * sqrt(rowSums(t(t(candidateEnds)-otherEdgeLimit)^2)) + 
+						   1 * sqrt(rowSums(t(t(candidateEnds)-startPoint)^2))  - 
+						   1 * sqrt(rowSums(t(t(candidateEnds)-edgeLimit)^2))
+						   ),])
+
+    startPoint <- pmax(pmin(startPoint,dim(sorbel)[1:2]-5),c(5,5))
+    endPoint <- pmax(pmin(endPoint,dim(sorbel)[1:2]-5),c(5,5))
     
     if(anyNA(startPoint) || anyNA(endPoint) || any(c(startPoint,endPoint)==0))
     {
-      print(paste0("from: ",startPoint[1],",",startPoint[2],"   to: ",endPoint[1],",",endPoint[2] ))
+      Warning(paste0("startPoint FAILURE; from: ",startPoint[1],",",startPoint[2],"   to: ",endPoint[1],",",endPoint[2] ))
       return(list(NULL,NULL))
     }
     
@@ -536,7 +598,7 @@ traceFromImage <- function(fin,
     
     startPoint <- (startStopCoords[[1]]*resizeFactor)-c(resizeSpanX[1],resizeSpanY[1])*resizeFactor#(cumuResize*c(xSpan[1],ySpan[1])) #-round(cumuResize[1]*xSpan[1])
     endPoint <- (startStopCoords[[2]]*resizeFactor)-c(resizeSpanX[1],resizeSpanY[1])*resizeFactor#(cumuResize*c(xSpan[1],ySpan[1])) #-round(cumuResize[1]*xSpan)
-    
+
     endProxRatio <- 10
   }
   
@@ -548,15 +610,20 @@ traceFromImage <- function(fin,
   print("Creating Trailing Edge Path...")
   print(startPoint)
   # pathMap <- minimalEdge*edgeFilter*sorbel
-  pathMap <- minimalEdge*sorbel
+  pathMap <- minimalEdge*(cannyFilterTip+(.2*sorbelOri))  #sorbel
   
   affineFactor <- c(resizeSpanX[1],resizeSpanY[1])
   
   # pathDF <- traceFromCannyEdges(as.matrix(parmax(list(pathMap/max(pathMap),as.cimg(pathMap>(mean(pathMap[pathMap>0.0])/2.0) ))) ), #as.matrix(pathMap+pathMap>mean(pathMap[pathMap>0]) ),
-  pathDF <- traceFromCannyEdges(as.matrix((pathMap/(1.6*median(pathMap[pathMap>0])))), #as.matrix(pathMap+pathMap>mean(pathMap[pathMap>0]) ),
+  #browser()
+  #pathMap[pathMap>1] <- 1
+  #pathDF <- traceFromCannyEdges(as.matrix((pathMap/(1.6*median(pathMap[pathMap>0])))), #as.matrix(pathMap+pathMap>mean(pathMap[pathMap>0]) ),
+  pathDF <- traceFromCannyEdges(as.matrix(pathMap), 
                                 round(startPoint),
                                 round(endPoint),
                                 endProxRatio)
+  #meh = try(pathDF[,1])
+  #if(class(meh)=="try-error")browser()
   
   annulus <- extractAnnulus(fin,pathDF[,1],pathDF[,2])
   #annulus <- NULL
