@@ -1,4 +1,4 @@
-cimg.use.openmp("never")
+#cimg.use.openmp("never")
 
 
 #' @title msum 
