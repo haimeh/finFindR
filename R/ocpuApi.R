@@ -81,7 +81,7 @@ hashFromImageAndEdgeCoord <- function(imageobj,xvec,yvec,boundResize=F)
 {
   if(boundResize)
   {
-    finImg <- constrainSizeFinImage(load.image(imageobj),1800,750)
+    finImg <- constrainSizeFinImage(load.image(imageobj),2000,750)
   }else{
     finImg <- load.image(imageobj)
   }

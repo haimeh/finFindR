@@ -291,7 +291,20 @@ traceFromImage <- function(fin,
 
   netFiltered <- netOutRaw
   netFiltered[,,1,] <- 1-netFiltered[,,1,] 
-  netFocus <- dilate_square(netFiltered[,,edgeChan,,drop=F]>.35, 15)
+  diffNotChan <- apply(get.locations(dilate_square(as.cimg(netFiltered[,,notEdgeChan,]>.35),9),as.logical)[,1:2],2,sd)
+  diffChan <- apply(get.locations(dilate_square(as.cimg(netFiltered[,,edgeChan,]>.35),9),as.logical)[,1:2],2,sd)
+  dilationFactor <- ceiling(sqrt(sum((diffChan-diffNotChan)^2)))
+  netFocus <- dilate_square(netFiltered[,,edgeChan,,drop=F]>.35, round(dilationFactor*1.5))
+  netFocus[1,,,] <- 0
+  netFocus[,1,,] <- 0
+  netFocus[width(netFocus),,,] <- 0
+  netFocus[,height(netFocus),,] <- 0
+
+  netFocus <- label( netFocus ,high_connectivity = F)
+  labelCounts <- table(netFocus)[-1]
+  
+  netFocus[netFocus != which.max(labelCounts)] <- 0
+  netFocus <- erode_square(netFocus,dilateFactor)
 
   if(!any(netFocus>0)){warning("NO FIN FOUND");return(list(NULL,NULL))}
   
@@ -326,7 +339,7 @@ traceFromImage <- function(fin,
   finCropped <- suppressWarnings(as.cimg(fin[ ceiling(resizeSpanX[1]):floor(resizeSpanX[2]) ,
                                        ceiling(resizeSpanY[1]):floor(resizeSpanY[2]),,]))
   
-  fin <- constrainSizeFinImage(finCropped,900,750)
+  fin <- constrainSizeFinImage(finCropped,2000,750)
   resizeFactor <- mean((dim(finCropped)/dim(fin))[1:2])
 
   #resizeFactor <- 2000/height(fin)
