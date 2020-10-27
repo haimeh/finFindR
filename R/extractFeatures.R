@@ -1,4 +1,3 @@
-cimg.use.openmp("never")
 
 
 #' @title msum 
@@ -21,14 +20,14 @@ constrainSizeFinImage <- function(fin)
     print("Image too large... Resizing...")
     resizeFactor <- 2000/height(fin)
     
-    fin <- resize(fin, size_x = round(2000*(width(fin)/height(fin))), size_y = 2000, interpolation_type = 6)
+    fin <- resize(fin, size_x = round(2000*(width(fin)/height(fin))), size_y = 2000, interpolation_type = 3)
   }
   else if(height(fin) < 750)
   {
     print("Image too small... Resizing...")
     resizeFactor <- 750/height(fin)
     
-    fin <- resize(fin, size_x = round(750*(width(fin)/height(fin))), size_y = 750, interpolation_type = 6)
+    fin <- resize(fin, size_x = round(750*(width(fin)/height(fin))), size_y = 750, interpolation_type = 3)
   }else{
     resizeFactor <- 1
   }
@@ -341,8 +340,13 @@ traceFromImage <- function(fin,
   #cannyFilter <- isoblur(resize( netOut-.25 ,size_x = width(fin) , size_y = height(fin),interpolation_type = 6),yRange/1000)/max(netOut)
   #cannyFilter <- resize( as.cimg(netOut) ,size_x = width(fin) , size_y = height(fin),interpolation_type = 3)
   #cannyFilter <- resize( as.cimg((netFiltered[,,1]) - (netFiltered[,,4]) + (netFiltered[,,edgeChan]*netFiltered[,,4]) ) ,size_x = width(fin) , size_y = height(fin),interpolation_type = 3)
-  cannyFilter <- resize( as.cimg((netFiltered[,,1]) - (netFiltered[,,4]) ) ,size_x = width(fin) , size_y = height(fin),interpolation_type = 3)
-  cannyFilterTip <- resize( as.cimg(netFiltered[,,1]) ,size_x = width(fin) , size_y = height(fin),interpolation_type = 3)
+  cannyFilterSmall <- netFiltered[,,c(1,4)]
+  cannyFilterSmall[,,2] <- netFiltered[,,1] - netFiltered[,,4]
+  cannyFilterAll <- resize( as.cimg(cannyFilterSmall) ,size_x = width(fin) , size_y = height(fin),interpolation_type = 3)
+  cannyFilterTip <- as.cimg(cannyFilterAll[,,1,])
+  cannyFilter <- as.cimg(cannyFilterAll[,,2,])
+  #cannyFilter <- resize( as.cimg((netFiltered[,,1]) - (netFiltered[,,4]) ) ,size_x = width(fin) , size_y = height(fin),interpolation_type = 3)
+  #cannyFilterTip <- resize( as.cimg(netFiltered[,,1]) ,size_x = width(fin) , size_y = height(fin),interpolation_type = 3)
   cannyFilterMax <- max(cannyFilter)
   if(max(cannyFilter)<.9){cannyFilter <- cannyFilter/cannyFilterMax}
 
@@ -525,6 +529,7 @@ traceFromImage <- function(fin,
 
       startVals <- (netFiltered[,,edgeChan]+netFiltered[,,1])[data.matrix(candidateStarts)]
       startPointSmall <- as.integer(round(colSums(t(t(candidateStarts)*startVals))/sum(startVals)))
+      #startPointSmall <- colSums(t(t(candidateStarts)*startVals))/sum(startVals)
 
     }else{
       print("Nerual Net failed to find start, assuming at the top of edges")
@@ -538,6 +543,7 @@ traceFromImage <- function(fin,
       	candidateStarts <- rbind(trailTarget,trailTarget,trailTarget,leadTarget)
       }
       startPointSmall <- as.integer(round(colMeans(candidateStarts,na.rm=T))[1:2])
+      #startPointSmall <- colMeans(candidateStarts,na.rm=T)[1:2]
     }
 
 
@@ -548,6 +554,7 @@ traceFromImage <- function(fin,
     targetPointVal = max(startMapFull)  
     startPoint <- as.integer(colMeans(get.locations(startMapFull,function(x)x>=targetPointVal)[1:2]))
     
+    #startPoint <- as.integer(round(startPointSmall * netOutResizeFactors * (dim(fin)/dim(finOri))[1:2]))
 
 
 

@@ -1,6 +1,7 @@
 .onLoad <- function(libname,pkgname)
 {
   require("mxnet")
+  imager:::cimg.use.openmp("never")
   .finFindREnv <- new.env()
   .finFindREnv$finIter <- setRefClass("finIter",
                                       
