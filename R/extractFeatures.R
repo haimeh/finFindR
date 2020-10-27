@@ -1,5 +1,4 @@
 
-
 #' @title msum 
 #' @description helper function for smoothing a sequence
 #' @param n width of kernel
