@@ -304,7 +304,7 @@ traceFromImage <- function(fin,
   labelCounts <- table(netFocus)[-1]
   
   netFocus[netFocus != which.max(labelCounts)] <- 0
-  netFocus <- erode_square(netFocus,dilateFactor)
+  netFocus <- erode_square(netFocus,dilationFactor)
 
   if(!any(netFocus>0)){warning("NO FIN FOUND");return(list(NULL,NULL))}
   
