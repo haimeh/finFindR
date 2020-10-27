@@ -422,12 +422,14 @@ traceFromImage <- function(fin,
   ##parmax.abs
   flatten <- function(imgLst){return( parmax.abs(imgLst) )}
   
-  dx <- imgradient(fin,"x")
+  gradis <- get_gradient(fin,"xy",2)
+  dx <- gradis[[1]]
+  dy <- gradis[[2]]
+
+  #dx <- imgradient(fin,"x")
   dx <- isoblur(dx,yRange/800)#700
   dx <- flatten(list(R(dx),G(dx),B(dx)))
-  
-  
-  dy <- imgradient(fin,"y")
+  #dy <- imgradient(fin,"y")
   dy <- isoblur(dy,yRange/800)
   dy <- flatten(list(R(dy),G(dy),B(dy)))
   
@@ -443,11 +445,15 @@ traceFromImage <- function(fin,
     G(extractedSilhouette) <- B(fin)-R(fin)
     B(extractedSilhouette) <- B(fin)-G(fin)
 
-    extractedSilhouetteDX <- imgradient(extractedSilhouette,"x")
+    extrGradis <- get_gradient(fin,"xy",2)
+    extractedSilhouetteDX <- extrGradis[[1]]
+    extractedSilhouetteDY <- extrGradis[[2]]
+    
+    #extractedSilhouetteDX <- imgradient(extractedSilhouette,"x")
     extractedSilhouetteDX <- isoblur(extractedSilhouetteDX,yRange/600)#400
     extractedSilhouetteDX <- flatten(list(R(extractedSilhouetteDX),G(extractedSilhouetteDX),B(extractedSilhouetteDX)))
     
-    extractedSilhouetteDY <- imgradient(extractedSilhouette,"y")
+    #extractedSilhouetteDY <- imgradient(extractedSilhouette,"y")
     extractedSilhouetteDY <- isoblur(extractedSilhouetteDY,yRange/600)
     extractedSilhouetteDY <- flatten(list(R(extractedSilhouetteDY),G(extractedSilhouetteDY),B(extractedSilhouetteDY)))
     
