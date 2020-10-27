@@ -290,23 +290,26 @@ traceFromImage <- function(fin,
   #########################################################################################
 
   netFiltered <- netOutRaw
-  netFiltered[,,1,] <- 1-netFiltered[,,1,] 
-  diffNotChan <- apply(get.locations(dilate_square(as.cimg(netFiltered[,,notEdgeChan,]>.35),9),as.logical)[,1:2],2,sd)
-  diffChan <- apply(get.locations(dilate_square(as.cimg(netFiltered[,,edgeChan,]>.35),9),as.logical)[,1:2],2,sd)
+  netFiltered[,,1,] <- 1-netFiltered[,,1,]
+  netFilteredThreshPre <- netFiltered > .35
+  diffNotChan <- apply(get.locations(dilate_square(as.cimg(netFilteredThreshPre[,,notEdgeChan,]),9),as.logical)[,1:2],2,mean)
+  diffChan <- apply(get.locations(dilate_square(as.cimg(netFilteredThreshPre[,,edgeChan,]),9),as.logical)[,1:2],2,mean)
   dilationFactor <- ceiling(sqrt(sum((diffChan-diffNotChan)^2)))
-  netFocus <- dilate_square(netFiltered[,,edgeChan,,drop=F]>.35, round(dilationFactor*1.5))
+  netFocus <- dilate_square(netFilteredThreshPre[,,edgeChan,,drop=F], round(dilationFactor))
   netFocus[1,,,] <- 0
   netFocus[,1,,] <- 0
   netFocus[width(netFocus),,,] <- 0
   netFocus[,height(netFocus),,] <- 0
 
+  if(!any(netFocus>0)){warning("NO FIN EDGE FOUND");return(list(NULL,NULL))}
+
   netFocus <- label( netFocus ,high_connectivity = F)
   labelCounts <- table(netFocus)[-1]
   
   netFocus[netFocus != which.max(labelCounts)] <- 0
-  netFocus <- erode_square(netFocus,dilationFactor)
+  netFocus <- dilate_square(netFilteredThreshPre[,,edgeChan,,drop=F], 9) * netFocus
 
-  if(!any(netFocus>0)){warning("NO FIN FOUND");return(list(NULL,NULL))}
+  if(!any(netFocus>0)){warning("NO FIN EDGE FOUND");return(list(NULL,NULL))}
   
   ###########################################################################################
   # crop fin to edge
@@ -581,6 +584,7 @@ traceFromImage <- function(fin,
       startPointSmall <- as.integer(round(colMeans(candidateStarts,na.rm=T))[1:2])
       #startPointSmall <- colMeans(candidateStarts,na.rm=T)[1:2]
     }
+    startPointSmall <- pmax(pmin(startPointSmall,dim(netFiltered)[1:2]),c(1,1))
 
 
 
