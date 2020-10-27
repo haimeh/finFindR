@@ -12,25 +12,39 @@ msum <- function(x,n=5,sides=1){filter(x,rep(1,min(n,length(x))), sides=sides)}
 #' @param fin Value of type cimg. Load the image via load.image("directory/finImage.JPG")
 #' @return Value of type list containing a scalar resize factor and a resized cimg
 #' @export
-constrainSizeFinImage <- function(fin)
+constrainSizeFinImage <- function(fin, maxDim, minDim)
 {
-  if(height(fin) > 2000)
+  shrinkFactors <- c(w2h=height(fin)/width(fin),h2w=width(fin)/height(fin) )
+
+  domDim <- which.max(dim(fin))
+
+  newDim <- dim(fin)[1:2]
+  if(dim(fin)[domDim] > maxDim)
   {
     print("Image too large... Resizing...")
-    resizeFactor <- 2000/height(fin)
-    
-    fin <- resize(fin, size_x = round(2000*(width(fin)/height(fin))), size_y = 2000, interpolation_type = 3)
+    if(domDim == 1){
+      newDim[1] <- maxDim
+      newDim[2] <- round(maxDim * shrinkFactors[1])
+    }else{
+      newDim[2] <- maxDim
+      newDim[1] <- round(maxDim * shrinkFactors[2])
+    }
   }
-  else if(height(fin) < 750)
+  else if(dim(fin)[domDim] < minDim)
   {
     print("Image too small... Resizing...")
-    resizeFactor <- 750/height(fin)
-    
-    fin <- resize(fin, size_x = round(750*(width(fin)/height(fin))), size_y = 750, interpolation_type = 3)
+    if(domDim == 1){
+      newDim[1] <- minDim
+      newDim[2] <- round(minDim * shrinkFactors[1])
+    }else{
+      newDim[2] <- minDim
+      newDim[1] <- round(minDim * shrinkFactors[2])
+    }
   }else{
-    resizeFactor <- 1
+    return(fin)
   }
-  return(list(fin=fin,resizeFactor=resizeFactor))
+    
+  return( resize(im=fin,interpolation_type=3,size_x=newDim[1],size_y=newDim[2]) )
 }
 
 
@@ -277,7 +291,7 @@ traceFromImage <- function(fin,
 
   netFiltered <- netOutRaw
   netFiltered[,,1,] <- 1-netFiltered[,,1,] 
-  netFocus <- dilate_square(netFiltered[,,edgeChan,,drop=F]>.35, 25)
+  netFocus <- dilate_square(netFiltered[,,edgeChan,,drop=F]>.35, 15)
 
   if(!any(netFocus>0)){warning("NO FIN FOUND");return(list(NULL,NULL))}
   
@@ -309,13 +323,17 @@ traceFromImage <- function(fin,
     resizeSpanY <- c(min(startStopCoords[[1]][2]-1,startStopCoords[[2]][2]-1,floor(resizeSpanY[1])),
                      max(startStopCoords[[1]][2]+1,startStopCoords[[2]][2]+1,ceiling(resizeSpanY[2])))
   }
-  fin <- suppressWarnings(as.cimg(fin[ ceiling(resizeSpanX[1]):floor(resizeSpanX[2]) ,
+  finCropped <- suppressWarnings(as.cimg(fin[ ceiling(resizeSpanX[1]):floor(resizeSpanX[2]) ,
                                        ceiling(resizeSpanY[1]):floor(resizeSpanY[2]),,]))
   
-  resizedFin <- constrainSizeFinImage(fin)
+  fin <- constrainSizeFinImage(finCropped,2000,750)
+  resizeFactor <- mean((dim(finCropped)/dim(fin))[1:2])
 
-  resizeFactor <- resizedFin$resizeFactor
-  fin <- resizedFin$fin
+  #resizeFactor <- 2000/height(fin)
+  #resizeFactor <- 750/height(fin)
+
+  #resizeFactor <- resizedFin$resizeFactor
+  #fin <- resizedFin$fin
   
   cumuResize <- (netOutResizeFactors*resizeFactor)
   
@@ -645,7 +663,7 @@ traceFromImage <- function(fin,
   # par(new=TRUE)
   # points(pathDF[,1],pathDF[,2],pch=".",col='red', ann=FALSE, asp = 0)
   
-  traceData <- list(annulus,plotpath,dim(resizedFin$fin))
+  traceData <- list(annulus,plotpath,dim(fin))
   names(traceData) <- c("annulus","coordinates","dim")
   return(traceData)
 }
