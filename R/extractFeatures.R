@@ -326,7 +326,7 @@ traceFromImage <- function(fin,
   finCropped <- suppressWarnings(as.cimg(fin[ ceiling(resizeSpanX[1]):floor(resizeSpanX[2]) ,
                                        ceiling(resizeSpanY[1]):floor(resizeSpanY[2]),,]))
   
-  fin <- constrainSizeFinImage(finCropped,1800,750)
+  fin <- constrainSizeFinImage(finCropped,1500,750)
   resizeFactor <- mean((dim(finCropped)/dim(fin))[1:2])
 
   #resizeFactor <- 2000/height(fin)
