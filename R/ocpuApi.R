@@ -17,13 +17,14 @@
 #' \code{extractAnnulus}
 #' which collects image data used for identification.
 #' Both the coordinates and the image annulus are then returned.
-#' @param imageobj character vector which denotes image file "directory/finImage.JPG"
+#' @param imageobj character vector which denotes image file "directory/finImage.JPG" or a list of such to be processed in parallel
+#' @param cores int indicating number of parallel workloads. Default: 8
 #' @return Value of type list containing:
 #' "hash" vector specifying an individual
 #' "coordinates" a matrix of coordinates
 #' @export
 
-hashFromImage <- function(imageobj, pathNet=NULL, hashNet=NULL)
+hashFromImage <- function(imageobj, cores=8, pathNet=NULL, hashNet=NULL)
 {
   if(class(imageobj)=="character")
   {
@@ -33,21 +34,23 @@ hashFromImage <- function(imageobj, pathNet=NULL, hashNet=NULL)
                                      pathNet = pathNet)
       if(is.null(traceResults[[1]]) | is.null(traceResults[[2]])){return(traceResults)}
       hashResult <- traceToHash(traceData=list(traceResults$annulus), mxnetModel=hashNet)
-      trailingEdge <- traceResults$coordinates
-      return(list("hash"=hashResult,"coordinates"=trailingEdge))
+      edgeCoords <- traceResults$coordinates
+      return(list("hash"=hashResult,"coordinates"=edgeCoords))
     }else{
-      traceImg <- list()
-      for (imageName in imageobj)
-      {
-        print(imageName)
-        traceResults <- traceFromImage(fin=load.image(imageName),
-                       startStopCoords = NULL,
-                       pathNet = pathNet)
-        traceImg <- append(traceImg,list(traceResults$annulus))
-        
-      }
-      names(traceImg) <- as.character(imageobj)
-      return(as.data.frame(traceToHash(traceData=traceImg, mxnetModel=hashNet)))
+      annulus_coordinates = parallel::mclapply(imageobj, function(imageName){
+          returnObj <- list()
+          traceResults <- traceFromImage(fin=load.image(imageName),
+                         startStopCoords = NULL,
+                         pathNet = pathNet)
+          returnObj[paste0(imageName,"_ann")] <- list(traceResults$annulus)
+          returnObj[paste0(imageName,"_coo")] <- list(traceResults$coordinates)
+          return(returnObj)
+        }, mc.cores=cores)
+      annulusImgs <- sapply(annulus_coordinates,function(x){x_tmp <- x[1]; names(x_tmp) <- substr(names(x_tmp), 0,nchar(names(x_tmp))-4); return(x_tmp)} )
+      edgeCoords <- sapply(annulus_coordinates,function(x){x_tmp <- x[2]; names(x_tmp) <- substr(names(x_tmp), 0,nchar(names(x_tmp))-4); return(x_tmp)} )
+
+      return(list("hash"=traceToHash(traceData=annulusImgs, mxnetModel=hashNet),
+                  "coordinates"=edgeCoords))
     }
   }else{stop()}
 }
