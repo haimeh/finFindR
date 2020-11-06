@@ -57,6 +57,8 @@ hashFromImage <- function(imageobj, cores=8, pathNet=NULL, hashNet=NULL)
 
 hashesFromImages <- function(...){
   cores=8
+  pathNet=NULL
+  hashNet=NULL
   if(all(sapply(list(...),class)=="character")){
     annulus_coordinates = parallel::mclapply(list(...), function(imageName){
         returnObj <- list()
