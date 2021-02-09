@@ -99,12 +99,14 @@ function(input, output, session) {
             
             if(input$removeForeign)
             {
-              correction <- merge(x=x,y=y,by.x='Image', by.y='Image')
+              correction <- merge(x=x,y=y,by.x='Image', by.y='Image', all.y=F, all.x=F)
             }else{
-              correction <- merge(x=x,y=y,by.x='Image', by.y='Image', all.y=T)
+              correction <- merge(x=x,y=y,by.x='Image', by.y='Image', all.y=T, all.x=F)
             }
             
             sessionQuery$idData <- as.character(unlist(correction['CatalogID']))
+            sessionQuery$idData <- sessionQuery$idData[!is.na(sessionQuery$idData) | is.nan(sessionQuery$idData)]
+
             names(sessionQuery$idData) <- as.character(unlist(correction['Image']))
             
             sessionQuery$hashData <- sessionQuery$hashData[names(sessionQuery$idData)]
