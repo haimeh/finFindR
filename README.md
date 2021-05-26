@@ -18,9 +18,11 @@ https://github.com/haimeh/finFindR/wiki/AppUsage<br />
 - Additional Species<br />
 <br /><br />
 
+Developed and Supported By Jaime Thompson
+<br /><br />
+
 ## A collaborative effort between
 
 ![west](inst/shiny_app/www/west.png)
 ![nmmf](inst/shiny_app/www/nmmf.png)
-<br /><br />
-Developed and Supported By Jaime Thompson
+
