@@ -2,6 +2,7 @@ library("shiny")
 library("DT")
 library("imager")
 library("finFindR")
+#source("../../R/extractFeatures.R")
 
 options(shiny.maxRequestSize=10*1024^2)
 options(stringsAsFactors=FALSE)
@@ -13,7 +14,7 @@ appScripts <- system.file("shiny_app", package="finFindR")
 sapply(list.files(path=appScripts,pattern="*_serverside.R",full.names = T),source,.GlobalEnv)
 
 networks <- system.file("extdata", package="finFindR")
-pathNet <- mxnet::mx.model.load(file.path(networks,'tracePath128'), 21)
+pathNet <- mxnet::mx.model.load(file.path(networks,'SWA_finTrace_fin'), 1000)
 cropNet <- mxnet::mx.model.load(file.path(networks,'cropperInit'), 941)
 mxnetModel <- mxnet::mx.model.load(file.path(networks,'fin_triplet32_4096_final'), 5600)
 

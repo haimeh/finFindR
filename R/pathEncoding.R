@@ -29,5 +29,6 @@ decodePath <- function(coordinateEncoding)
   pathDiffsAppended <- inverse.rle(rleReconst)
   pathDiffs <- apply(matrix(pathDiffsAppended, nrow=length(pathDiffsAppended)/2, ncol=2),2,cumsum)
   path <- rbind(c(x,y),t(t(pathDiffs)+c(x,y)))
+  print("successful decompression")
   return(path)
 }
