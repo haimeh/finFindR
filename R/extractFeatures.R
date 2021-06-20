@@ -10,7 +10,7 @@ msum <- function(x,n=5,sides=1){filter(x,rep(1,min(n,length(x))), sides=sides)}
 #' @description default function used in get.locations
 #' @param image
 #' @return binary img coordinates
-locThresh <- function(x){return(x>.35)}
+locThresh <- function(x,a=.35){return(x>a)}
 
 #' @title pClip
 #' @description slopy version of clamp
@@ -487,29 +487,27 @@ traceFromImage <- function(fin,
   ##average
   ##parmax.abs
   flatten <- function(imgLst){return( parmax.abs(imgLst) )}
+  blurFactor <- max(lengthEdgeEst/800,.5)
 
 
   #print("%%%%%%%% artifactRemover %%%%%%%%%%%")
   #print(range(isoblur(fin,1)-fin))
-  finSoft <- fin+(1.5*(isoblur(fin,1)-fin))
-  finSoft <- isoblur(finSoft,lengthEdgeEst/800)
+  finSoft <- fin+(10*(isoblur(fin,.5)-fin))
+  finSoft <- isoblur(finSoft,blurFactor)
   gradis <- get_gradient(finSoft,"xy",2)
-  #colorCannyFilter <- rep(cannyFilter,3)
-  #dim(colorCannyFilter) <- dim(fin)
-  #backSmoothFin <- (isoblur(fin,lengthEdgeEst/200)*(1-colorCannyFilter)) + (fin * colorCannyFilter)
-  #gradis <- get_gradient(backSmoothFin,"xy",2)
+  #gradis <- get_gradient(fin,"xy",2)
 
   dx <- gradis[[1]]
   dy <- gradis[[2]]
 
 
   dx <- flatten(list(R(dx),G(dx),B(dx)))
-  dx <- dx+1.25*(isoblur(dx,1.25)-dx)
-  dx <- isoblur(dx,lengthEdgeEst/800)
+  dx <- dx+2*(isoblur(dx,.6)-dx)
+  dx <- isoblur(dx,blurFactor)
 
   dy <- flatten(list(R(dy),G(dy),B(dy)))
-  dy <- dy+1.25*(isoblur(dy,1.25)-dy)
-  dy <- isoblur(dy,lengthEdgeEst/800)
+  dy <- dy+2*(isoblur(dy,.6)-dy)
+  dy <- isoblur(dy,blurFactor)
   
   angleGrad <- atan(dy/dx)
   sorbel <- abs(dx)+abs(dy)
@@ -521,19 +519,24 @@ traceFromImage <- function(fin,
     
   if(!silhouette)
   {
-    extractedSilhouette <- cimg(array(0,dim(fin)))
-    R(extractedSilhouette) <- G(fin)-R(fin)
-    G(extractedSilhouette) <- B(fin)-R(fin)
-    B(extractedSilhouette) <- B(fin)-G(fin)
+    extractedSilhouette <- cimg(array(0,dim(finSoft)))
+    R(extractedSilhouette) <- G(finSoft)-R(finSoft)
+    G(extractedSilhouette) <- B(finSoft)-R(finSoft)
+    B(extractedSilhouette) <- B(finSoft)-G(finSoft)
+    extractedSilhouette <- extractedSilhouette*4
+    #extractedSilhouetteSoft <- extractedSilhouette+(5*(isoblur(extractedSilhouette,.6)-extractedSilhouette))
+    #extractedSilhouetteSoft <- isoblur(extractedSilhouetteSoft,blurFactor)
 
-    extrGradis <- get_gradient(fin,"xy",2)
+    extrGradis <- get_gradient(extractedSilhouette,"xy",2)
     extractedSilhouetteDX <- extrGradis[[1]]
+    extractedSilhouetteDX <- extractedSilhouetteDX+2*(isoblur(extractedSilhouetteDX,.65)-extractedSilhouetteDX)
     extractedSilhouetteDY <- extrGradis[[2]]
+    extractedSilhouetteDY <- extractedSilhouetteDY+2*(isoblur(extractedSilhouetteDY,.65)-extractedSilhouetteDY)
     
-    extractedSilhouetteDX <- isoblur(extractedSilhouetteDX,lengthEdgeEst/600)#400
+    extractedSilhouetteDX <- isoblur(extractedSilhouetteDX,blurFactor+.1)#400
     extractedSilhouetteDX <- flatten(list(R(extractedSilhouetteDX),G(extractedSilhouetteDX),B(extractedSilhouetteDX)))
     
-    extractedSilhouetteDY <- isoblur(extractedSilhouetteDY,lengthEdgeEst/600)
+    extractedSilhouetteDY <- isoblur(extractedSilhouetteDY,blurFactor+.1)
     extractedSilhouetteDY <- flatten(list(R(extractedSilhouetteDY),G(extractedSilhouetteDY),B(extractedSilhouetteDY)))
     
     angleColor <- atan(extractedSilhouetteDY/extractedSilhouetteDX)
@@ -672,6 +675,7 @@ traceFromImage <- function(fin,
     
     startPoint <- ((startStopCoords[[1]])-c(resizeSpanX[1],resizeSpanY[1]))/resizeFactor
     endPoint <- ((startStopCoords[[2]])-c(resizeSpanX[1],resizeSpanY[1]))/resizeFactor
+    browser()
   }
     
   ## DONE #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
