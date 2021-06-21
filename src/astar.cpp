@@ -130,15 +130,13 @@ std::vector<int> findPath(const Rcpp::NumericMatrix edge,
       // || std::sqrt(std::pow(std::abs(startx-node_heap.front().get_xPos()),2)+
       //           std::pow(std::abs(starty-node_heap.front().get_yPos()),2)) > maxRadius)
     {
-      // Rcpp::Rcout <<"loop: "<<loopCount
-      //           <<" ~ pop: "<<node_heap.size()
-      //           <<" ~ position == 1?: "<<condition(node_heap.front().get_xPos(),node_heap.front().get_yPos())
-      //           <<" ~ x > max?: "<<(node_heap.front().get_xPos()>maxX)
-      //           <<" ~ x < min?: "<<(node_heap.front().get_xPos()<minX)
-      //           <<" ~ y > max?: "<<(node_heap.front().get_yPos()>maxY)
-      //           <<" ~ y < min?: "<<(node_heap.front().get_yPos()<minY)
-      //           <<" ~ radiusThing?: "<<(std::sqrt(std::pow(std::abs(startx-node_heap.front().get_xPos()),2)+
-      //                              std::pow(std::abs(starty-node_heap.front().get_yPos()),2)) > maxRadius)<<std::endl;
+       Rcpp::Rcout <<"loop: "<<loopCount
+                 <<" ~ pop: "<<node_heap.size()
+                 <<" ~ position == 1?: "<<condition(node_heap.front().get_xPos(),node_heap.front().get_yPos())
+                 <<" ~ x > max?: "<<(node_heap.front().get_xPos()>maxX)
+                 <<" ~ x < min?: "<<(node_heap.front().get_xPos()<minX)
+                 <<" ~ y > max?: "<<(node_heap.front().get_yPos()>maxY)
+                 <<" ~ y < min?: "<<(node_heap.front().get_yPos()<minY)<<std::endl;
     }else{
       x = node_heap.front().get_xPos();
       y = node_heap.front().get_yPos();
@@ -196,6 +194,7 @@ std::vector<int> findPath(const Rcpp::NumericMatrix edge,
         if(newy > minY && newy < maxY && newx > minX && newx < maxX && condition(newx,newy) < 1
            )
         {
+          //Rcpp::Rcout <<"new"<< newx <<" "<< newy <<std::endl;
           //NEW NODE
           //spawn nodes from latest step
           //mark as open for investigation

@@ -17,36 +17,77 @@
 #' \code{extractAnnulus}
 #' which collects image data used for identification.
 #' Both the coordinates and the image annulus are then returned.
-#' @param imageobj character vector which denots image file "directory/finImage.JPG"
+#' @param imageobj character vector which denotes image file "directory/finImage.JPG"
 #' @return Value of type list containing:
 #' "hash" vector specifying an individual
 #' "coordinates" a matrix of coordinates
 #' @export
 
-hashFromImage <- function(imageobj)
+hashFromImage <- function(imageobj, pathNet=NULL, hashNet=NULL)
 {
-  if(class(imageobj)=="character")
-  {
-    traceResults <- traceFromImage(fin=load.image(imageobj),
-                                   startStopCoords = NULL,
-                                   pathNet = NULL)
-    traceResult <- traceToHash(list(traceResults$annulus))
-    trailingEdge <- traceResults$coordinates
-    return(list("hash"=traceResult,"coordinates"=trailingEdge))
-  }else{
-    traceImg <- list()
-    for (imageName in imageobj)
-    {
-      traceResults <- traceFromImage(fin=load.image(imageName),
-                     startStopCoords = NULL,
-                     pathNet = NULL)
-      traceImg <- append(traceImg,list(traceResults$annulus))
-      
-      names(traceImg) <- as.character(imageobj)
-    }
-    return(as.data.frame(traceToHash(traceImg)))
-  }
+  if(class(imageobj)=="character" && length(imageobj)==1){
+      traceResults <- traceFromImage(fin=load.image(imageobj),
+                                     startStopCoords = NULL,
+                                     pathNet = pathNet)
+      if(is.null(traceResults[[1]]) | is.null(traceResults[[2]])){return(traceResults)}
+      hashResult <- traceToHash(traceData=list(traceResults$annulus), mxnetModel=hashNet)
+      edgeCoords <- traceResults$coordinates
+      return(list("hash"=hashResult,"coordinates"=edgeCoords))
+  }else{stop()}
 }
+
+
+#' @title hashesFromImages
+#' @usage curl -v http://localhost:8004/ocpu/library/finFindR/R/hashesFromImages/json\
+#' -F "img1=@C:/Users/jathompson/Documents/dolphinTestingdb/jensImgs/test2.jpg"\
+#' -F "img2=@C:/Users/jathompson/Documents/dolphinTestingdb/jensImgs/test3.jpg"\
+#' -F "test=@C:/Users/jathompson/Documents/dolphinTestingdb/jensImgs/test4.jpg"\
+#' -F "misc=@C:/Users/jathompson/Documents/dolphinTestingdb/jensImgs/test7.jpg"
+#' 
+#' @details \code{traceFromImage} wrapper for use through opencpu.
+#' opencpu passes temp object name to function followed by \code{traceToHash}
+#' Processes an image(cimg) containing a fin. 
+#' First the image undergoes cleanup through a variety of filters and glare removal via
+#' \code{constrainSizeFinImage} and \code{fillGlare}
+#' These processes help enhance edge clarity.
+#' The trailing edge is highlighted via neural network. 
+#' The image is then cropped down to the trailing edge for efficiency purposes.
+#' The canny edges are then extracted from the crop and passed to 
+#' \code{traceFromCannyEdges}
+#' which isolates coordinates for the trailing edge. These coordinates are then passed to
+#' \code{extractAnnulus}
+#' which collects image data used for identification.
+#' Both the coordinates and the image annulus are then returned.
+#' @param  variable number of character vectors which denotes image file "directory/finImage.JPG" to be processed in parallel
+#' @return list of two sub lists respectively containing:
+#' "hash" vector specifying an individual
+#' "coordinates" a 2 column matrix of coordinates
+#' each element in this list is nammed with the argument passed in via the api
+#' @export
+hashesFromImages <- function(...){
+  cores=8
+  pathNet=NULL
+  hashNet=NULL
+  if(all(sapply(list(...),class)=="character")){
+    annulus_coordinates = parallel::mclapply(list(...), function(imageName){
+        returnObj <- list()
+        traceResults <- traceFromImage(fin=load.image(imageName),
+                       startStopCoords = NULL,
+                       pathNet = pathNet)
+        returnObj[paste0(imageName,"_ann")] <- list(traceResults$annulus)
+        returnObj[paste0(imageName,"_coo")] <- list(traceResults$coordinates)
+        return(returnObj)
+      }, mc.cores=cores)
+    annulusImgs <- sapply(annulus_coordinates,function(x)
+                          {x_tmp <- x[1]; names(x_tmp) <- substr(names(x_tmp), 0,nchar(names(x_tmp))-4); return(x_tmp)} )
+    edgeCoords <- sapply(annulus_coordinates,function(x)
+                         {x_tmp <- x[2]; names(x_tmp) <- substr(names(x_tmp), 0,nchar(names(x_tmp))-4); return(x_tmp)} )
+    return(list("hash"=traceToHash(traceData=annulusImgs, mxnetModel=hashNet),
+                "coordinates"=edgeCoords))
+  }else{stop()}
+}
+
+
 
 #' @title hashFromImageAndEdgeCoord 
 #' @usage curl -v http://localhost:8004/ocpu/library/finFindR/R/hashFromImageAndEdgeCoord/json \
@@ -77,7 +118,7 @@ hashFromImageAndEdgeCoord <- function(imageobj,xvec,yvec,boundResize=F)
 {
   if(boundResize)
   {
-    finImg <- constrainSizeFinImage(load.image(imageobj))
+    finImg <- constrainSizeFinImage(load.image(imageobj),2000,750)
   }else{
     finImg <- load.image(imageobj)
   }
