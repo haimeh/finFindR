@@ -11,7 +11,8 @@ appendRecursive <- TRUE
 plotLim <- 4
 
 appScripts <- system.file("shiny_app", package="finFindR")
-sapply(list.files(path=appScripts,pattern="*_serverside.R",full.names = T),source,.GlobalEnv)
+#sapply(list.files(path=appScripts,pattern="*_serverside.R",full.names = T),source,.GlobalEnv)
+sapply(list.files(path=".",pattern="*_serverside.R",full.names = T),source,.GlobalEnv)
 
 networks <- system.file("extdata", package="finFindR")
 pathNet <- mxnet::mx.model.load(file.path(networks,'SWA_finTrace_fin'), 1000)
@@ -106,12 +107,18 @@ function(input, output, session) {
             }
             
             sessionQuery$idData <- as.character(unlist(correction['CatalogID']))
-            sessionQuery$idData <- sessionQuery$idData[!is.na(sessionQuery$idData) | is.nan(sessionQuery$idData)]
-
             names(sessionQuery$idData) <- as.character(unlist(correction['Image']))
             
             sessionQuery$hashData <- sessionQuery$hashData[names(sessionQuery$idData)]
             sessionQuery$traceData <- sessionQuery$traceData[names(sessionQuery$idData)]
+
+            if(input$removeForeign)
+            {
+                missedForeignIndex <- which(!is.na(sessionQuery$idData) | is.nan(sessionQuery$idData))
+                sessionQuery$idData <- sessionQuery$idData[missedForeignIndex]
+                sessionQuery$hashData <- sessionQuery$hashData[missedForeignIndex]
+                sessionQuery$traceData <- sessionQuery$traceData[missedForeignIndex]
+            }
             
             rankTable$editCount <- rankTable$editCount+1
           }
