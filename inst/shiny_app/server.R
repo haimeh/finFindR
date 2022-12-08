@@ -3,7 +3,10 @@ library("DT")
 library("imager")
 library("finFindR")
 #NOTE: dont forget to removee
-source("../../R/extractFeatures.R")
+#source("../../R/extractFeatures.R")
+sapply(list.files(path="../../R/",pattern="*.R$",full.names = T),source,.GlobalEnv)
+library("Rcpp")
+sapply(list.files(path="../../src/",pattern="*.cpp$",full.names = T),sourceCpp)
 
 options(shiny.maxRequestSize=10*1024^2)
 options(stringsAsFactors=FALSE)
@@ -17,7 +20,7 @@ sapply(list.files(path=".",pattern="*_serverside.R",full.names = T),source,.Glob
 
 networks <- system.file("extdata", package="finFindR")
 #pathNet <- mxnet::mx.model.load(file.path(networks,'SWA_finTrace_fin'), 1000)
-pathNet <- mxnet::mx.model.load(file.path("../../inst/extdata",'SWA_traceLong2_bn_6,10,5_RGB_fin'), 0000)
+pathNet <- mxnet::mx.model.load(file.path("../../inst/extdata",'SWA_cont2_traceLong7_bn_6,10,5_RGB_fin'), 0000)
 #pathNet <- mxnet::mx.model.load(file.path("../../inst/extdata",'prime_traceLong2_bn_6,10,5_RGB_fin'), 0000)
 cropNet <- mxnet::mx.model.load(file.path(networks,'cropperInit'), 941)
 mxnetModel <- mxnet::mx.model.load(file.path(networks,'fin_triplet32_4096_final'), 5600)
@@ -62,16 +65,44 @@ function(input, output, session) {
 		for(finPart in c("Trailing","Leading","Peduncle")){
 			sessionQuery$hashData[[finPart]] <- NULL
 			sessionQuery$traceData[[finPart]] <- list()
+
+			rankTableUniqueOnlyParts[[finPart]]$NameSimple <- NULL
+			rankTableUniqueOnlyParts[[finPart]]$Name <- NULL
+			rankTableUniqueOnlyParts[[finPart]]$ID <- NULL
+			rankTableUniqueOnlyParts[[finPart]]$Distance <- NULL
+			rankTableParts[[finPart]]$NameSimple <- NULL
+			rankTableParts[[finPart]]$Name <- NULL
+			rankTableParts[[finPart]]$ID <- NULL
+			rankTableParts[[finPart]]$Distance <- NULL
 		}
 
+		rankTable$editCount <- rankTable$editCount+1
 		sessionQuery$idData <- NULL
 	})
 	observeEvent(input$clearRef,{
 		for(finPart in c("Trailing","Leading","Peduncle")){
 			sessionReference$hashData[[finPart]] <- NULL
 			sessionReference$traceData[[finPart]] <- list()
-		}
 
+			rankTableUniqueOnlyParts[[finPart]]$NameSimple <- NULL
+			rankTableUniqueOnlyParts[[finPart]]$Name <- NULL
+			rankTableUniqueOnlyParts[[finPart]]$ID <- NULL
+			rankTableUniqueOnlyParts[[finPart]]$Distance <- NULL
+			rankTableParts[[finPart]]$NameSimple <- NULL
+			rankTableParts[[finPart]]$Name <- NULL
+			rankTableParts[[finPart]]$ID <- NULL
+			rankTableParts[[finPart]]$Distance <- NULL
+		}
+		rankTableUniqueOnly$NameSimple <- NULL
+		rankTableUniqueOnly$Name <- NULL
+		rankTableUniqueOnly$ID <- NULL
+		rankTableUniqueOnly$Distance <- NULL
+		rankTable$NameSimple <- NULL
+		rankTable$Name <- NULL
+		rankTable$ID <- NULL
+		rankTable$Distance <- NULL
+
+		rankTable$editCount <- rankTable$editCount+1
 		sessionReference$idData <- NULL
 	})
 
@@ -116,6 +147,10 @@ function(input, output, session) {
 		rankTable$CatalogID=NULL
 		rankTable$Unique=NULL
 		rankTable$Distance=NULL
+		rankTableUniqueOnly$NameSimple <- NULL
+		rankTableUniqueOnly$Name <- NULL
+		rankTableUniqueOnly$ID <- NULL
+		rankTableUniqueOnly$Distance <- NULL
 		#for(finPart in c("Trailing","Leading","Peduncle")){
 		#	DistanceParts[[finPart]]=NULL
 		#}
@@ -162,7 +197,7 @@ function(input, output, session) {
 						sessionQuery$idData <- as.character(unlist(correction['CatalogID']))
 						names(sessionQuery$idData) <- as.character(unlist(correction['Image']))
 						
-						browser()
+						print("renaming")
 						for(finPart in c("Trailing","Leading","Peduncle")){
 							#TODO: fix name things!!! almost done!
 							#index <- names(sessionQuery$idData) %in% names(sessionQuery$hashData[[finPart]])
@@ -318,6 +353,11 @@ function(input, output, session) {
 			rankTableParts[[finPart]]$ID         <- rankTableParts[[finPart]]$ID        [rownames(rankTableParts[[finPart]]$ID        ) != rownames,]
 			rankTableParts[[finPart]]$Unique     <- rankTableParts[[finPart]]$Unique    [rownames(rankTableParts[[finPart]]$Unique    ) != rownames,]
 			rankTableParts[[finPart]]$Distance   <- rankTableParts[[finPart]]$Distance  [rownames(rankTableParts[[finPart]]$Distance  ) != rownames,]
+
+			rankTableUniqueOnlyParts[[finPart]]$Name       <- rankTableUniqueOnlyParts[[finPart]]$Name      [rownames(rankTableUniqueOnlyParts[[finPart]]$Name      ) != rownames,]
+			rankTableUniqueOnlyParts[[finPart]]$NameSimple <- rankTableUniqueOnlyParts[[finPart]]$NameSimple[rownames(rankTableUniqueOnlyParts[[finPart]]$NameSimple) != rownames,]
+			rankTableUniqueOnlyParts[[finPart]]$ID         <- rankTableUniqueOnlyParts[[finPart]]$ID        [rownames(rankTableUniqueOnlyParts[[finPart]]$ID        ) != rownames,]
+			rankTableUniqueOnlyParts[[finPart]]$Distance   <- rankTableUniqueOnlyParts[[finPart]]$Distance  [rownames(rankTableUniqueOnlyParts[[finPart]]$Distance  ) != rownames,]
 		}
 		
 		#rankTable$Name <- rankTable$Name[rownames,]
@@ -381,12 +421,14 @@ function(input, output, session) {
 																round(input$clickPointSet$y,0))
 			if(traceGuideCounter$count==1)
 			{
+				#if( sum(traceGuides[[1]]-traceGuides[[2]])>5 ){
 				startStopPoints <- data.frame(traceGuides$start,traceGuides$end)
 				withProgress(message = 'Retracing', value = .5,
 							detail = paste(readyToRetrace$imgName),
 							{
 								#TODO: add input[[which edge selecteed]]
-								selectedChan <- c("Peduncle"=2,"Trailing"=3,"Leading"=5)
+								selectedChan <- c("Peduncle"=2,"Trailing"=4,"Leading"=6)
+
 								traceResults <- try(traceFromImage(load.image(file.path(readyToRetrace$directory,
 																				readyToRetrace$imgName)),
 																	startStopPoints,
@@ -408,7 +450,6 @@ function(input, output, session) {
 								{
 									plotsPanel[[readyToRetrace$panelID]]$focusedCoord[[input$segmentTarget]] <- encodePath(traceResults$coordinates)
 									#plotsPanel[[readyToRetrace$panelID]]$focusedCoord <- traceResults$coordinates
-									#browser()
 									#plotsPanel[[readyToRetrace$panelID]]$coord[input$segmentTarget][targetImage] == encodePath(traceResults$coordinates)
 									#targetImage <- names(plotsPanel[[readyToRetrace$panelID]]$coord[input$segmentTarget])
 
@@ -424,6 +465,7 @@ function(input, output, session) {
 									print("rendered")
 								}
 							})
+				#}else{	plotsPanel[[readyToRetrace$panelID]]$focusedCoord[[input$segmentTarget]] = NULL}
 			}
 
 		}
@@ -489,9 +531,13 @@ function(input, output, session) {
 
 	observeEvent(rankTable$editCount,{
 		for(finPart in c("Trailing","Leading","Peduncle")){
-		rankTableUniqueOnlyParts[[finPart]]$NameSimple <- topMatchPerClass(rankTable$NameSimple, rankTable$Unique)
-		rankTableUniqueOnlyParts[[finPart]]$Name <- topMatchPerClass(rankTable$Name, rankTable$Unique)
-		rankTableUniqueOnlyParts[[finPart]]$ID <- topMatchPerClass(rankTable$ID, rankTable$Unique)
+		rankTableUniqueOnlyParts[[finPart]]$NameSimple <- topMatchPerClass(rankTableParts[[finPart]]$NameSimple, rankTableParts[[finPart]]$Unique)
+		rankTableUniqueOnlyParts[[finPart]]$Name <- topMatchPerClass(rankTableParts[[finPart]]$Name, rankTableParts[[finPart]]$Unique)
+		rankTableUniqueOnlyParts[[finPart]]$ID <- topMatchPerClass(rankTableParts[[finPart]]$ID, rankTableParts[[finPart]]$Unique)
+
+		#rankTableUniqueOnlyParts[[finPart]]$NameSimple <- topMatchPerClass(rankTable$NameSimple, rankTable$Unique)
+		#rankTableUniqueOnlyParts[[finPart]]$Name <- topMatchPerClass(rankTable$Name, rankTable$Unique)
+		#rankTableUniqueOnlyParts[[finPart]]$ID <- topMatchPerClass(rankTable$ID, rankTable$Unique)
 
 		#tmpDistance <- as.list(rep(NA,length(input$targetFeatures)))
 		#names(tmpDistance) <- input$targetFeatures
@@ -499,36 +545,94 @@ function(input, output, session) {
 		#	tmpDistance[[finPart]] <- DistanceParts[[finPart]]
 		#}
 		#rankTable$Distance <- Reduce('+', tmpDistance[input$targetFeatures])
-		rankTableUniqueOnlyParts[[finPart]]$Distance <- topMatchPerClass(rankTable$Distance, rankTable$Unique)
+		#rankTableUniqueOnlyParts[[finPart]]$Distance <- topMatchPerClass(rankTable$Distance, rankTable$Unique)
+		rankTableUniqueOnlyParts[[finPart]]$Distance <- topMatchPerClass(rankTableParts[[finPart]]$Distance, rankTableParts[[finPart]]$Unique)
 
 		
+		}
+		#updateDisplayTables(finPartSelected=input$targetFeatures, rankTableUniqueOnlyParts, rankTableUniqueOnly)
+		#updateDisplayTables(finPartSelected=input$targetFeatures, rankTableParts, rankTable)
 		# distance ensujres something is in
 		# maybe this can be done more efficiently..
 		if(!is.null(rankTable$ID) && !is.null(rankTableUniqueOnly$ID))
 		{
-			rownames(rankTable$Name) <- paste(names(sessionQuery$idData),":",sessionQuery$idData)
-			rownames(rankTable$NameSimple) <- paste(names(sessionQuery$idData),":",sessionQuery$idData)
-			rownames(rankTable$ID) <- paste(names(sessionQuery$idData),":",sessionQuery$idData)
-			rownames(rankTable$Unique) <- paste(names(sessionQuery$idData),":",sessionQuery$idData)
-			rownames(rankTable$Distance) <- paste(names(sessionQuery$idData),":",sessionQuery$idData)
+			#rownames(rankTable$Name) <- paste(names(sessionQuery$idData),":",sessionQuery$idData)
+			#rownames(rankTable$NameSimple) <- paste(names(sessionQuery$idData),":",sessionQuery$idData)
+			#rownames(rankTable$ID) <- paste(names(sessionQuery$idData),":",sessionQuery$idData)
+			#rownames(rankTable$Unique) <- paste(names(sessionQuery$idData),":",sessionQuery$idData)
+			#rownames(rankTable$Distance) <- paste(names(sessionQuery$idData),":",sessionQuery$idData)
 
-			#for(finPart in c("Trailing","Leading","Peduncle")){
-			#	rownames(DistanceParts[[finPart]]) <- paste(names(sessionQuery$idData),":",sessionQuery$idData)
-			#	rownames(DistancePartsUniqueOnly[[finPart]]) <- paste(names(sessionQuery$idData),":",sessionQuery$idData)
-			#}
+			##for(finPart in c("Trailing","Leading","Peduncle")){
+			##	rownames(DistanceParts[[finPart]]) <- paste(names(sessionQuery$idData),":",sessionQuery$idData)
+			##	rownames(DistancePartsUniqueOnly[[finPart]]) <- paste(names(sessionQuery$idData),":",sessionQuery$idData)
+			##}
 
-			rownames(rankTableUniqueOnly$Name) <- paste(names(sessionQuery$idData),":",sessionQuery$idData)
-			rownames(rankTableUniqueOnly$NameSimple) <- paste(names(sessionQuery$idData),":",sessionQuery$idData)
-			rownames(rankTableUniqueOnly$ID) <- paste(names(sessionQuery$idData),":",sessionQuery$idData)
-			rownames(rankTableUniqueOnly$Distance) <- paste(names(sessionQuery$idData),":",sessionQuery$idData)
+			#rownames(rankTableUniqueOnly$Name) <- paste(names(sessionQuery$idData),":",sessionQuery$idData)
+			#rownames(rankTableUniqueOnly$NameSimple) <- paste(names(sessionQuery$idData),":",sessionQuery$idData)
+			#rownames(rankTableUniqueOnly$ID) <- paste(names(sessionQuery$idData),":",sessionQuery$idData)
+			#rownames(rankTableUniqueOnly$Distance) <- paste(names(sessionQuery$idData),":",sessionQuery$idData)
+			rownames <- list(Trailing=NULL,Leading=NULL,Peduncle=NULL)
+			for(finPart in c("Trailing","Leading","Peduncle")){
+
+				tmpRowNames <- names(sessionQuery$idData[names(sessionQuery$hashData[[finPart]])])
+				rownames[[finPart]] <- paste(tmpRowNames,":",sessionQuery$idData[tmpRowNames])
+				#tmpRowNames <- names(sessionQuery$hashData[[finPart]])[!is.null(sessionQuery$hashData[[finPart]])]
+				#rownames <- paste(tmpRowNames,":",sessionQuery$idData[tmpRowNames])
+
+				rownames(rankTableUniqueOnlyParts[[finPart]]$NameSimple) <- rownames[[finPart]]
+				rownames(rankTableUniqueOnlyParts[[finPart]]$Name) <- rownames[[finPart]]
+				rownames(rankTableUniqueOnlyParts[[finPart]]$ID) <- rownames[[finPart]]
+				rownames(rankTableUniqueOnlyParts[[finPart]]$Distance) <- rownames[[finPart]]
+
+				rownames(rankTableParts[[finPart]]$NameSimple) <- rownames[[finPart]]
+				rownames(rankTableParts[[finPart]]$Name) <- rownames[[finPart]]
+				rownames(rankTableParts[[finPart]]$ID) <- rownames[[finPart]]
+				rownames(rankTableParts[[finPart]]$Distance) <- rownames[[finPart]]
+			}
+			updateDisplayTables(finPartSelected=input$targetFeatures, rankTableUniqueOnlyParts, rankTableUniqueOnly)
+			updateDisplayTables(finPartSelected=input$targetFeatures, rankTableParts, rankTable)
 		}
-		}
+	})
+
+	# --- clear segment
+	observeEvent(input[[paste0("removeSegment","TableQuery")]],ignoreInit=T,{
+			showModal(modalDialog(
+				title = paste("Are you sure you want to remove",input$segmentTarget,"segment?"),
+				size = "s",
+				footer=tagList(actionButton("confirmSegmentRemove","Yes"),modalButton("Cancel")),
+				easyClose = F
+			))
+	})
+	observeEvent(input$confirmSegmentRemove,{
+		removeModal()
+		sessionQuery$traceData[[input$segmentTarget]][[imageNameTableQuery()]] <- c(0,0,4,0)
+		sessionQuery$hashData[[input$segmentTarget]][[imageNameTableQuery()]] <- NULL
+		plotsPanel[["TableQuery"]]$focusedCoord <- lapply(sessionQuery$traceData,function(x){x[[imageNameTableQuery()]]})
+
+		rownamesTmp <-  sessionQuery$idData[which(names(sessionQuery$idData)==imageNameTableQuery())]
+		rownames <- paste(names(rownamesTmp),":",rownamesTmp)
+		#sessionQuery$idData <- sessionQuery$idData[which(names(sessionQuery$idData)!=imageNameTableQuery())]
+		#sessionQuery$hashData[[input$segmentTarget]][imageNameTableQuery()] <- NULL
+		#sessionQuery$traceData[[input$segmentTarget]][imageNameTableQuery()] <- NULL
+		rankTableParts[[input$segmentTarget]]$Name       <- rankTableParts[[input$segmentTarget]]$Name      [rownames(rankTableParts[[input$segmentTarget]]$Name      ) != rownames,]
+		rankTableParts[[input$segmentTarget]]$NameSimple <- rankTableParts[[input$segmentTarget]]$NameSimple[rownames(rankTableParts[[input$segmentTarget]]$NameSimple) != rownames,]
+		rankTableParts[[input$segmentTarget]]$ID         <- rankTableParts[[input$segmentTarget]]$ID        [rownames(rankTableParts[[input$segmentTarget]]$ID        ) != rownames,]
+		rankTableParts[[input$segmentTarget]]$Unique     <- rankTableParts[[input$segmentTarget]]$Unique    [rownames(rankTableParts[[input$segmentTarget]]$Unique    ) != rownames,]
+		rankTableParts[[input$segmentTarget]]$Distance   <- rankTableParts[[input$segmentTarget]]$Distance  [rownames(rankTableParts[[input$segmentTarget]]$Distance  ) != rownames,]
+
+		rankTableUniqueOnlyParts[[input$segmentTarget]]$Name       <- rankTableUniqueOnlyParts[[input$segmentTarget]]$Name      [rownames(rankTableUniqueOnlyParts[[input$segmentTarget]]$Name      ) != rownames,]
+		rankTableUniqueOnlyParts[[input$segmentTarget]]$NameSimple <- rankTableUniqueOnlyParts[[input$segmentTarget]]$NameSimple[rownames(rankTableUniqueOnlyParts[[input$segmentTarget]]$NameSimple) != rownames,]
+		rankTableUniqueOnlyParts[[input$segmentTarget]]$ID         <- rankTableUniqueOnlyParts[[input$segmentTarget]]$ID        [rownames(rankTableUniqueOnlyParts[[input$segmentTarget]]$ID        ) != rownames,]
+		rankTableUniqueOnlyParts[[input$segmentTarget]]$Distance   <- rankTableUniqueOnlyParts[[input$segmentTarget]]$Distance  [rownames(rankTableUniqueOnlyParts[[input$segmentTarget]]$Distance  ) != rownames,]
+
+		activeRankTableCell$cell <- matrix(1,1,2)
+		#updateDisplayTables(finPartSelected=input$targetFeatures, rankTableParts, rankTable)
+		rankTable$editCount <- rankTable$editCount+1
 	})
 	
 	# --- tableQuery panel mod events
 	observeEvent(input[[paste0("retrace","TableQuery")]],ignoreInit=T,{
 			print("retraceTableQuery493")
-			#browser()
 		plotsPanel[["TableQuery"]]$focusedCoord <- lapply(sessionQuery$traceData,function(x){x[[imageNameTableQuery()]]})
 		prepRetrace(panelID="TableQuery",
 					imageName= strsplit(rownames(rankTable$Name)[activeRankTableCell$cell][1]," : ")[[1]][1],#strsplit(rownames(rankTable$Name)[activeRankTableCell$cell][1]," : ")[[1]][1],
@@ -536,6 +640,7 @@ function(input, output, session) {
 					targetDir = input$queryDirectory,
 					readyToRetrace=readyToRetrace)
 	})
+
 	observeEvent(input[[paste0("cancelRetrace","TableQuery")]],ignoreInit=T,{
 		cancelRetrace(readyToRetrace=readyToRetrace,
 						targetEnvir=sessionQuery)
@@ -547,9 +652,7 @@ function(input, output, session) {
 
 		#plotsPanel[["TableQuery"]]$coord <- do.call(rbind,lapply(sessionQuery$traceData,function(x){decodePath(unlist(x[[imageNameTableQuery()]]))}))
 
-		#BUG: finish this crap
 		print("509")
-		#browser()
 		coordTmp <- lapply(sessionQuery$traceData,function(x){decodePath(unlist(x[[imageNameTableQuery()]]))})
 		plotsPanel[["TableQuery"]]$coord <- do.call(rbind,coordTmp[!apply(1>=sapply(coordTmp,dim),2,prod)])
 		plotsPanel[["TableQuery"]]$focusedCoord <- lapply(sessionQuery$traceData,function(x){x[[imageNameTableQuery()]]})
@@ -706,9 +809,7 @@ function(input, output, session) {
 	
 	output$imageTableQuery <- renderPlot({
 			print("656")
-			#browser()
 		print(paste('plot:',plotsPanel[["TableQuery"]]$fin))
-									#browser()
 		plotFinTrace(load.image(plotsPanel[["TableQuery"]]$fin),
 								plotsPanel[["TableQuery"]]$coord,
 								plotsPanel[["TableQuery"]]$focusedCoord,
@@ -815,7 +916,6 @@ function(input, output, session) {
 						if(!is.null(activeRankTableCell$cell))
 						{
 								print("762")
-								#browser()
 							plotsPanel[["TableQuery"]]$fin <- file.path(input$queryDirectory, imageNameTableQuery())
 							if(plotsPanel[["TableQuery"]]$mode != "default")
 							{
@@ -826,7 +926,8 @@ function(input, output, session) {
 							#plotsPanel[["TableQuery"]]$coord <- sessionQuery$traceData[imageNameTableQuery()]
 							#plotsPanel[["TableQuery"]]$coord <- lapply(sessionQuery$traceData,function(x){x[imageNameTableQuery()]})
 							#names(plotsPanel[["TableQuery"]]$coord) <- names(sessionQuery$traceData)
-							plotsPanel[["TableQuery"]]$coord <- do.call(rbind,lapply(sessionQuery$traceData,function(x){decodePath(unlist(x[[imageNameTableQuery()]]))}))
+							#plotsPanel[["TableQuery"]]$coord <- do.call(rbind,lapply(sessionQuery$traceData,function(x){if(is.null(unlist(x[[imageNameTableQuery()]]))){return(c(0,0))}else{decodePath(unlist(x[[imageNameTableQuery()]]))} }))
+							plotsPanel[["TableQuery"]]$coord <- do.call(rbind,lapply(sessionQuery$traceData,function(x){decodePath(unlist(x[[imageNameTableQuery()]])) }))
 						}
 						
 						if(!is.null(activeRankTableCell$cell)){
@@ -842,10 +943,17 @@ function(input, output, session) {
 									{
 			#plotsPanel[[panelID]]$coord <- do.call(rbind,lapply(targetEnvir$traceData,function(x){decodePath(unlist(x[[imageName]]))}))
 										print(paste('plot:',rankTableUniqueOnly$Name[activeRankTableCell$cell]))
-									#browser()
+		#coordTmp <- lapply(sessionQuery$traceData,function(x){decodePath(unlist(x[[imageNameTableQuery()]]))})
+		#plotsPanel[["TableQuery"]]$coord <- do.call(rbind,coordTmp[!apply(1>=sapply(coordTmp,dim),2,prod)])
+		#plotsPanel[["TableQuery"]]$focusedCoord <- lapply(sessionQuery$traceData,function(x){x[[imageNameTableQuery()]]})
+										#coordinates,
+										#focusedCoordinates
+										#plotsPanel[["TableQuery"]]$focusedCoord <- lapply(sessionQuery$traceData,function(x){x[[imageNameTableQuery()]]})
+										#sessionQuery$hashData[[finPart]] <- sessionQuery$hashData[[finPart]][names(sessionQuery$idData)]
 										plotFinTrace(load.image(rankTableUniqueOnly$Name[activeRankTableCell$cell]),
-																sessionReference$traceData[rankTableUniqueOnly$Name[activeRankTableCell$cell]],
-																sessionReference$traceData[rankTableUniqueOnly$Name[activeRankTableCell$cell]][[input$segmentTarget]],
+																do.call(rbind,lapply(sessionReference$traceData,function(x){decodePath(unlist(x[[rankTableUniqueOnly$Name[activeRankTableCell$cell] ]]))})),
+																#decodePath(unlist(sessionReference$traceData[[input$targetFeatures]][rankTableUniqueOnly$Name[activeRankTableCell$cell]])),
+																lapply(sessionReference$traceData,function(x){x[[ rankTableUniqueOnly$Name[activeRankTableCell$cell] ]]}),
 																mode="default",
 																#input$segmentTarget,
 																input,
@@ -861,11 +969,13 @@ function(input, output, session) {
 								output$imageTableRef <- renderPlot({
 									if(length(activeRankTableCell$cell)>1)
 									{
-									#browser()
 										print(paste('plot:',rankTable$Name[activeRankTableCell$cell]))
 										plotFinTrace(load.image(rankTable$Name[activeRankTableCell$cell]),
-																sessionReference$traceData[rankTable$Name[activeRankTableCell$cell]],
-																sessionReference$traceData[rankTable$Name[activeRankTableCell$cell]][[input$segmentTarget]],
+																#sessionReference$traceData[rankTable$Name[activeRankTableCell$cell]],
+																do.call(rbind,lapply(sessionReference$traceData,function(x){decodePath(unlist(x[[rankTable$Name[activeRankTableCell$cell] ]]))})),
+																#sessionReference$traceData[rankTable$Name[activeRankTableCell$cell]][[input$segmentTarget]],
+																#decodePath(unlist(sessionReference$traceData[[input$targetFeatures]][rankTable$Name[activeRankTableCell$cell]])),
+																lapply(sessionReference$traceData,function(x){x[[ rankTable$Name[activeRankTableCell$cell] ]]}),
 																mode="default",
 																#input$segmentTarget,
 																input,
@@ -907,8 +1017,8 @@ function(input, output, session) {
 				input$loadRdataRef,
 				traceBatchDone$count), {
 					print("is.null?")
-					if(!is.null(sessionReference$hashData) && 
-							!is.null(sessionQuery$hashData))
+					if(!is.null(sessionReference$hashData[["Trailing"]]) && 
+							!is.null(sessionQuery$hashData[["Trailing"]]))
 					{
 						print("calculating rank table")
 						calculateRankTable(rankTable=rankTable,
@@ -917,14 +1027,15 @@ function(input, output, session) {
 											sessionReference=sessionReference,
 											input)
 						print("862")
-						#browser()
 						rankTable$editCount <- rankTable$editCount+1
 					}
 				})
 	
 	
-	observeEvent(c(rankTable$editCount, input$targetFeatures),
-				 {updateDisplayTables(input$targetFeatures,rankTableParts,rankTable )}
+	observeEvent(c(rankTable$editCount, input$targetFeatures),{
+						updateDisplayTables(finPartSelected=input$targetFeatures, rankTableUniqueOnlyParts, rankTableUniqueOnly)
+						updateDisplayTables(finPartSelected=input$targetFeatures, rankTableParts, rankTable)
+				 }
 	)
 	
 	
@@ -1049,9 +1160,54 @@ function(input, output, session) {
 				}
 			}
 		})
+
+		# --- clear segment
+		observeEvent(input[[paste0("removeSegment",panelID)]],ignoreInit=T,{
+				showModal(modalDialog(
+					title = paste("Are you sure you want to remove?",input$segmentTarget,"segment"),
+					size = "s",
+					footer=tagList(actionButton("confirmSegmentRemoveW","Yes"),modalButton("Cancel")),
+					easyClose = F
+				))
+		})
+
+		observeEvent(input$confirmSegmentRemoveW,{
+		removeModal()
+		#sessionQuery$traceData[[input$segmentTarget]][[imageNameTableQuery()]] <- c(0,0,4,0)
+		#sessionQuery$hashData[[input$segmentTarget]][[imageNameTableQuery()]] <- NULL
+		#plotsPanel[["TableQuery"]]$focusedCoord <- lapply(sessionQuery$traceData,function(x){x[[imageNameTableQuery()]]})
+		sessionQuery$traceData[[input$segmentTarget]][[imageName]] <- c(0,0,4,0)
+		sessionQuery$hashData[[input$segmentTarget]][[imageName]] <- NULL
+		plotsPanel[[panelID]]$focusedCoord <- lapply(sessionQuery$traceData,function(x){x[[imageName]]})
+
+		if(!is.null(rankTable$ID) && !is.null(rankTableUniqueOnly$ID))
+		{
+			rownamesTmp <-  sessionQuery$idData[which(names(sessionQuery$idData)==imageName)]
+			rownames <- paste(names(rownamesTmp),":",rownamesTmp)
+			#sessionQuery$idData <- sessionQuery$idData[which(names(sessionQuery$idData)!=imageNameTableQuery())]
+			#sessionQuery$hashData[[input$segmentTarget]][imageNameTableQuery()] <- NULL
+			#sessionQuery$traceData[[input$segmentTarget]][imageNameTableQuery()] <- NULL
+			rankTableParts[[input$segmentTarget]]$Name       <- rankTableParts[[input$segmentTarget]]$Name      [rownames(rankTableParts[[input$segmentTarget]]$Name      ) != rownames,]
+			rankTableParts[[input$segmentTarget]]$NameSimple <- rankTableParts[[input$segmentTarget]]$NameSimple[rownames(rankTableParts[[input$segmentTarget]]$NameSimple) != rownames,]
+			rankTableParts[[input$segmentTarget]]$ID         <- rankTableParts[[input$segmentTarget]]$ID        [rownames(rankTableParts[[input$segmentTarget]]$ID        ) != rownames,]
+			rankTableParts[[input$segmentTarget]]$Unique     <- rankTableParts[[input$segmentTarget]]$Unique    [rownames(rankTableParts[[input$segmentTarget]]$Unique    ) != rownames,]
+			rankTableParts[[input$segmentTarget]]$Distance   <- rankTableParts[[input$segmentTarget]]$Distance  [rownames(rankTableParts[[input$segmentTarget]]$Distance  ) != rownames,]
+
+			rankTableUniqueOnlyParts[[input$segmentTarget]]$Name       <- rankTableUniqueOnlyParts[[input$segmentTarget]]$Name      [rownames(rankTableUniqueOnlyParts[[input$segmentTarget]]$Name      ) != rownames,]
+			rankTableUniqueOnlyParts[[input$segmentTarget]]$NameSimple <- rankTableUniqueOnlyParts[[input$segmentTarget]]$NameSimple[rownames(rankTableUniqueOnlyParts[[input$segmentTarget]]$NameSimple) != rownames,]
+			rankTableUniqueOnlyParts[[input$segmentTarget]]$ID         <- rankTableUniqueOnlyParts[[input$segmentTarget]]$ID        [rownames(rankTableUniqueOnlyParts[[input$segmentTarget]]$ID        ) != rownames,]
+			rankTableUniqueOnlyParts[[input$segmentTarget]]$Distance   <- rankTableUniqueOnlyParts[[input$segmentTarget]]$Distance  [rownames(rankTableUniqueOnlyParts[[input$segmentTarget]]$Distance  ) != rownames,]
+
+			activeRankTableCell$cell <- matrix(1,1,2)
+			#updateDisplayTables(finPartSelected=input$targetFeatures, rankTableParts, rankTable)
+			rankTable$editCount <- rankTable$editCount+1
+		}
+		})
+
 		# --- set window to retrace
 		observeEvent(input[[paste0("retrace",panelID)]],ignoreInit=T,{
-		plotsPanel[[panelID]]$focusedCoord <- lapply(sessionQuery$traceData,function(x){x[[imageNameTableQuery()]]})
+							# activeRankTableCell$cell
+			plotsPanel[[panelID]]$focusedCoord <- lapply(sessionQuery$traceData,function(x){x[[imageName]]})
 			prepRetrace(panelID=panelID,
 						imageName=imageName,
 						rowName = rownames(rankTable$Name)[activeRankTableCell$cell][1],
@@ -1080,7 +1236,10 @@ function(input, output, session) {
 			#plotsPanel[[panelID]]$coord <- targetEnvir$traceData[imageName]
 			#plotsPanel[[panelID]]$coord <- lapply(targetEnvir$traceData,function(x){x[imageName]})
 			#names(plotsPanel[[panelID]]$coord) <- names(targetEnvir$traceData)
-			plotsPanel[[panelID]]$coord <- do.call(rbind,lapply(targetEnvir$traceData,function(x){decodePath(unlist(x[[imageName]]))}))
+			##plotsPanel[[panelID]]$coord <- do.call(rbind,lapply(targetEnvir$traceData,function(x){decodePath(unlist(x[[imageName]]))}))
+			coordTmp <- lapply(sessionQuery$traceData,function(x){decodePath(unlist(x[[imageName]]))})
+			plotsPanel[[panelID]]$coord <- do.call(rbind,coordTmp[!apply(1>=sapply(coordTmp,dim),2,prod)])
+			plotsPanel[[panelID]]$focusedCoord <- lapply(sessionQuery$traceData,function(x){x[[imageName]]})
 			print("outputs reset")
 		})
 		
@@ -1120,13 +1279,11 @@ function(input, output, session) {
 	windowGenerator <- function(selection,
 								plotsPanel)
 	{
-		#browser()
 		hashMapLabel <- strsplit(selection,": ")[[1]]
 		imageRegister <- hashMapLabel[3]
 		panelID <- gsub("[[:punct:]]", "", paste0(hashMapLabel,collapse = ""))
 		panelID <- gsub("[[:space:]]", "", panelID)
 		
-		if(!exists(paste(panelID),envir = plotsPanel))
 		{
 			plotsPanel[[panelID]] <- reactiveValues(fin=NULL,
 													coord=NULL,
@@ -1178,7 +1335,6 @@ function(input, output, session) {
 		output[[paste0("image",panelID)]] <- renderPlot({
 			print(paste('plot:',targetDir))
 			print(paste('panelID:',panelID))
-									#browser()
 			plotFinTrace(load.image(targetDir),
 									plotsPanel[[panelID]]$coord,
 									plotsPanel[[panelID]]$focusedCoord,

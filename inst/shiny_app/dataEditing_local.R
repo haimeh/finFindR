@@ -21,7 +21,6 @@ prepRetrace <- function(panelID,
 						targetDir,
 						readyToRetrace)
 {
-		browser("prepRetrace24")
 	plotsPanel[[panelID]]$mode <- "fix"
 	
 	readyToRetrace$imgName <- imageName
@@ -62,19 +61,19 @@ saveRetrace <- function(readyToRetrace,
 
 		#for(finPart in c("trailing","leading")){
 			print("prep trace")
-			#browser()
 			# TODO: do we just retrace the whole thing?
 			targetEnvir$traceData[[input$segmentTarget]][readyToRetrace$imgName] <- list(encodePath(readyToRetrace$traceResults$coordinates))
 			targetEnvir$hashData[[input$segmentTarget]][readyToRetrace$imgName] <- traceToHash( list(readyToRetrace$traceResults$annulus ), mxnetModel  )
 			print("retrace hash calculated")
 			
 			# --- recalculate rank table ------------------
-			if(length(sessionReference$hashData)>0)
+			if(length(sessionReference$hashData[[input$segmentTarget]])>0)
 			{
 				newDistances <- distanceToRef( (unlist(targetEnvir$hashData[[input$segmentTarget]][readyToRetrace$imgName])),
 												data.frame(sessionReference$hashData[[input$segmentTarget]]))
 				# make sure to clip to correct number of columns
-				newSortingIndex <- order(newDistances)[1:ncol(rankTable$Name)]
+				#newSortingIndex <- order(newDistances)[1:ncol(rankTable$Name)]
+				newSortingIndex <- order(newDistances)[1:length(sessionReference$hashData[[input$segmentTarget]])]
 				
 				#rankTable$Name[readyToRetrace$rowName,] <- names(sessionReference$idData[newSortingIndex])
 				#rankTable$NameSimple[readyToRetrace$rowName,] <- basename(names(sessionReference$idData[newSortingIndex]))
@@ -89,11 +88,16 @@ saveRetrace <- function(readyToRetrace,
 				rankTableParts[[input$segmentTarget]]$Unique[readyToRetrace$rowName,] <- !duplicated(sessionReference$idData[newSortingIndex])
 				rankTableParts[[input$segmentTarget]]$Distance[readyToRetrace$rowName,] <- newDistances[newSortingIndex]
 
+		#rankTableUniqueOnlyParts[[input$segmentTarget]]$Name       <- rankTableUniqueOnlyParts[[input$segmentTarget]]$Name      [rownames(rankTableUniqueOnlyParts[[input$segmentTarget]]$Name      ) != rownames,]
+		#rankTableUniqueOnlyParts[[input$segmentTarget]]$NameSimple <- rankTableUniqueOnlyParts[[input$segmentTarget]]$NameSimple[rownames(rankTableUniqueOnlyParts[[input$segmentTarget]]$NameSimple) != rownames,]
+		#rankTableUniqueOnlyParts[[input$segmentTarget]]$ID         <- rankTableUniqueOnlyParts[[input$segmentTarget]]$ID        [rownames(rankTableUniqueOnlyParts[[input$segmentTarget]]$ID        ) != rownames,]
+		#rankTableUniqueOnlyParts[[input$segmentTarget]]$Distance   <- rankTableUniqueOnlyParts[[input$segmentTarget]]$Distance  [rownames(rankTableUniqueOnlyParts[[input$segmentTarget]]$Distance  ) != rownames,]
 				#for(finPart in c("Trailing","Leading","Peduncle")){
 				#	DistanceParts[[finPart]]=NULL
 				#	DistanceParts[[input$segmentTarget]][readyToRetrace$rowName,] <- newDistances[newSortingIndex]
 				#}
 				rankTable$editCount <- rankTable$editCount+1
+				updateDisplayTables(finPartSelected=input$targetFeatures, rankTableParts, rankTable)
 			}
 			# ---------------------------------------------
 			
@@ -109,5 +113,6 @@ saveRetrace <- function(readyToRetrace,
 		#}
 	}else{
 		print("skip len-0 trace")
+		plotsPanel[[readyToRetrace$panelID]]$mode <- "default"
 	}
 }

@@ -52,7 +52,6 @@ loadRdata <- function(directory,saveEnvir,appendNew,isRef)
 						if(isRef)
 						{
 							for(finPart in c("Trailing","Leading","Peduncle")){
-								#if(finPart == "Peduncle")browser()
 								names(loopEnvir[["hashData"]][[finPart]]) <- normalizePath(file.path(RdataFile,names(loopEnvir$hashData[[finPart]])))
 								names(loopEnvir[["traceData"]][[finPart]]) <- normalizePath(file.path(RdataFile,names(loopEnvir$traceData[[finPart]])))
 							}
@@ -100,7 +99,6 @@ loadRdata <- function(directory,saveEnvir,appendNew,isRef)
 				for(finPart in c("Trailing","Leading","Peduncle")){
 					saveEnvir$hashData[[finPart]] <- append(saveEnvir$hashData[[finPart]],tempEnvir$hashData[[finPart]])
 					saveEnvir$traceData[[finPart]] <- append(saveEnvir$traceData[[finPart]],tempEnvir$traceData[[finPart]])
-					#if(finPart == "Peduncle")browser()
 					#names(loopEnvir[["hashData"]][[finPart]]) <- normalizePath(file.path(RdataFile,names(loopEnvir$hashData[[finPart]])))
 					#names(loopEnvir[["traceData"]][[finPart]]) <- normalizePath(file.path(RdataFile,names(loopEnvir$traceData[[finPart]])))
 				}

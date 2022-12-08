@@ -28,6 +28,7 @@ plotFinTrace <- function(fin,coordinates,focusedCoordinates, mode, input, showTr
 					#plotCoordinates <- decodePath(unlist(coordinates[[finComponent]]))
 					#coordinates <- do.call(rbind,lapply(coordinates[[finComponent]]))
 				}else{
+						#browser()
 					plotCoordinates <- coordinates
 					#plotCoordinates <- do.call(rbind,lapply(coordinates,function(x){decodePath(unlist(x))}))
 					#plotCoordinates <- coordinates
@@ -106,6 +107,8 @@ generateDisplayHeader <- function(instance,
 				choices = c("Trailing","Leading","Peduncle"),
 				inline = T
 			),
+			actionButton(paste0("removeSegment",instance),"Remove Selected Segment"),
+
 			h4("Click start point then Click end point"),
 			actionButton(paste0("cancelRetrace",instance),"Cancel"),
 			actionButton(paste0("saveRetrace",instance),"Save")

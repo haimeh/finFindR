@@ -49,42 +49,42 @@ cropDirectory <- function(searchDirectory,
 	
 	index <- !(mainImgName %in% cropedImgNames)
 	withProgress(message = 'Cropping', value = 0,
-							 {
-								 progressTicker <- 0
-								 for(imgName in queryImgs[index])
-								 {
-									 progressTicker <- progressTicker+1
-									 if(mimicDirStructure)
-									 {
-										 dirStruct <- gsub(searchDirectory,"",imgName)
-										 
-										 folderNames <- unlist(strsplit(dirStruct,"/"))
-										 folderNames <- folderNames[-length(folderNames)]
-										 folderNames <- folderNames[-which(folderNames %in% c("","\\") )]
-										 
-										 newDirStruct <- ""
-										 for(folder in folderNames)
-										 {
-											 newDirStruct <- file.path(newDirStruct,folder)
-											 dir.create(file.path(saveDirectory,newDirStruct), showWarnings = FALSE)
+							{
+								progressTicker <- 0
+								for(imgName in queryImgs[index])
+								{
+									progressTicker <- progressTicker+1
+									if(mimicDirStructure)
+									{
+										dirStruct <- gsub(searchDirectory,"",imgName)
+										
+										folderNames <- unlist(strsplit(dirStruct,"/"))
+										folderNames <- folderNames[-length(folderNames)]
+										folderNames <- folderNames[-which(folderNames %in% c("","\\") )]
+										
+										newDirStruct <- ""
+										for(folder in folderNames)
+										{
+											newDirStruct <- file.path(newDirStruct,folder)
+											dir.create(file.path(saveDirectory,newDirStruct), showWarnings = FALSE)
 										 }
-									 }else{
+									}else{
 										 newDirStruct <- ""
-									 }
-									 print("==== + ====")
-									 print(basename(imgName))
-									 #print(file.path(sub('/$','',saveDirectory),sub('^/','',newDirStruct)))
-									 try(cropFins(imageName=imgName,
+									}
+									print("==== + ====")
+									print(basename(imgName))
+									#print(file.path(sub('/$','',saveDirectory),sub('^/','',newDirStruct)))
+									try(cropFins(imageName=imgName,
 												cropNet=cropNet,
 												workingImage=workingImage,
 												saveDir=file.path(sub('/$','',saveDirectory),sub('^/','',newDirStruct)),
 												minXY=minXY,
 												target=labelTarget,
 												threshold=1-sensitivity))
-									 incProgress(1/sum(index), detail = paste(basename(imgName)," -- ",progressTicker,"of",sum(index)))
+									incProgress(1/sum(index), detail = paste(basename(imgName)," -- ",progressTicker,"of",sum(index)))
 									 
-								 }
-							 })
+								}
+							})
 }
 
 processImageData <- function(directory,
@@ -103,16 +103,19 @@ processImageData <- function(directory,
 		traceImg <- list()
 		#traceCoord <- list()
 		#idData <- NULL
-		storageTemplate <- rep(0,length(imgPaths))
-		names(storageTemplate) <- basename(imgPaths)
+		hashTemplate <- rep(NA,length(imgPaths))
+		traceTemplate <- rep(NA,length(imgPaths))
+		#traceTemplate <- array(0,c(2,length(imgPaths)))
+		names(traceTemplate) <- basename(imgPaths)
+		names(hashTemplate) <- basename(imgPaths)
 		
-		hashData <- list(Trailing=storageTemplate, Leading=storageTemplate, Peduncle=storageTemplate)
-		traceCoord <- list(Trailing=storageTemplate, Leading=storageTemplate, Peduncle=storageTemplate)
+		hashData <- list(Trailing=hashTemplate, Leading=hashTemplate, Peduncle=hashTemplate)
+		traceCoord <- list(Trailing=traceTemplate, Leading=traceTemplate, Peduncle=traceTemplate)
 		#traceImg <- list(Trailing=storageTemplate, Leading=storageTemplate, Peduncle=storageTemplate)
 		idData <- NULL
 		
-			#finParts <- list("Trailing","Leading","Peduncle")
-			finParts <- list("Peduncle","Trailing","Leading")
+			finParts <- list("Trailing","Leading","Peduncle")
+			#finParts <- list("Peduncle","Trailing","Leading")
 
 			#cl <- parallel::makeCluster(getOption("cl.cores", length(finParts)))
 			#parallel::clusterExport(cl,"pathNet")
@@ -144,23 +147,57 @@ processImageData <- function(directory,
 
 			# channel 1 : all
 			# channel 2 : peduncle
-			# channel 3 : trailing
-			# channel 4 : tip
-			# channel 5 : leading
-			selectedChan <- c("Peduncle"=2,"Trailing"=3,"Leading"=5)
-			traceResults <- lapply(finParts,function(finPart){
+			# channel 3 : trans
+			# channel 4 : trailing
+			# channel 5 : tip
+			# channel 6 : leading
+			selectedChan <- c("Peduncle"=2,"Trailing"=4,"Leading"=6)
+			result <-
+			traceResults <- list()
+			justStartCoord <- NULL
+			netOut <- NULL
+			for(finPart in finParts){
 				print(finPart);
-			#try(traceFromImage(imager::load.image(img),NULL,pathNet, (finPart=="Trailing")))
-				try(traceFromImage(imager::load.image(img),NULL,pathNet, selectedChan[[finPart]]))
-			})
+				print("nn");
+				reuseData <- switch(finPart,
+					"Trailing"=list(justStartCoord=NULL,userNetOut=NULL),
+					"Peduncle"=list(justStartCoord=traceResults[["Trailing"]]$coordinates[nrow(traceResults[["Trailing"]]$coordinates),], userNetOut=reuseData$userNetOut),
+					"Leading"=list(justStartCoord=traceResults[["Trailing"]]$coordinates[1,], userNetOut=reuseData$userNetOut)
+				)
+				result <- try(traceFromImage(fin=imager::load.image(img),startStopCoords = NULL,pathNet = pathNet, edgeChan=selectedChan[[finPart]], justStartCoord=reuseData$justStartCoord, userNetOut=reuseData$userNetOut))
+				if(class(result)=="try-error"){
+					result <- list(annulus=NULL,coordinates=NULL,dim=NULL, netOut=NULL)
+				}
+				traceResults[[finPart]] <- result
+			}
+			#traceResults <- lapply(finParts,function(finPart){
+			#	print(finPart);
+			##try(traceFromImage(imager::load.image(img),NULL,pathNet, (finPart=="Trailing")))
+			#				#justStartCoord = NULL,
+			#				#userNetOut = NULL)
+			#	if(finPart=="Trailing"){
+			#		justStartCoord
+			#	}
+			#	result <- try(traceFromImage(imager::load.image(img),NULL,pathNet, selectedChan[[finPart]]))
+			#	if(class(result)=="try-error"){
+			#		return(list(annulus=NULL,coordinates=NULL,dim=NULL, netOut=NULL))
+			#	}
+			#	return(result)
+			#})
 			names(traceResults) <- finParts
-			
+
 			## name lists of data
 			for(finPart in finParts){
+				print(finPart);
+				print("hash");
 				#BUG: we need to address the parts of code that expect the null results to be removed..
 				traceImg[[finPart]][basename(img)] <- list(traceResults[[finPart]]$annulus)
+				#if(nrow(traceResults[[finPart]]$coordinates)>2 & class(traceResults[[finPart]]$coordinates) != "try-error" & !is.null(traceResults[[finPart]]$coordinates)){
+				#if(class(traceResults[[finPart]]$coordinates[1]) != "try-error" & !is.null(traceResults[[finPart]]$coordinates)){
 				if(!is.null(traceResults[[finPart]]$coordinates)){
 					traceCoord[[finPart]][basename(img)] <- list(encodePath(traceResults[[finPart]]$coordinates))
+				}else{
+					traceCoord[[finPart]][basename(img)] <- list(c(0,0,4,0))
 				}
 			}
 			idData[basename(img)] <- "unlabeled"
@@ -276,6 +313,7 @@ calculateRankTable <- function(rankTable,
 		#	prevFinPart <- finPart
 		}
 
+		print("compare")
 		for(finPart in c("Trailing","Leading","Peduncle")){
 			#comparisonResults[[finPart]] <- distanceToRefParallel(queryHashData=sessionQuery$hashData[[finPart]],
 			#											referenceHashData=sessionReference$hashData[[finPart]],
@@ -320,7 +358,8 @@ calculateRankTable <- function(rankTable,
 				for(finPart in c("Trailing","Leading","Peduncle")){
 					#NOTE: none of the names should be missing, just null, so alignment should not be issue
 					#TODO: tho the comparison table shouldnt have all images, so we need to subset by hashData null?
-					tmpRowNames <- names(sessionQuery$hashData[[finPart]])[!is.null(sessionQuery$hashData[[finPart]])]
+					#tmpRowNames <- names(sessionQuery$hashData[[finPart]])[!is.null(sessionQuery$hashData[[finPart]])]
+					tmpRowNames <- names(sessionQuery$idData[names(sessionQuery$hashData[[finPart]])])
 					rownames[[finPart]] <- paste(tmpRowNames,":",sessionQuery$idData[tmpRowNames])
 				}
 				
@@ -385,6 +424,7 @@ calculateRankTable <- function(rankTable,
 				}
 				incProgress(1/4,detail=paste("Done"))
 			})
+		print("compare end")
 		updateDisplayTables(finPartSelected=input$targetFeatures, rankTableParts, rankTable)
 		gc()
 	}
