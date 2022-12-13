@@ -1061,8 +1061,8 @@ function(input, output, session) {
 							
 							allHashData <- append(sessionQuery$hashData[["Trailing"]],sessionReference$hashData[["Trailing"]])
 							
-							hashRow$names <- append(if(length(sessionQuery$hashData[["Trailing"]])>0){paste("Query:",sessionQuery$idData,":",names(sessionQuery$hashData[["Trailing"]]))},
-													if(length(sessionReference$hashData[["Trailing"]])>0){paste("Refer:",sessionReference$idData,":",names(sessionReference$hashData[["Trailing"]]))})
+							hashRow$names <- append(if(length(sessionQuery$hashData[["Trailing"]])>0){paste("Query:",sessionQuery$idData[names(sessionQuery$hashData[["Trailing"]])],":",names(sessionQuery$hashData[["Trailing"]]))},
+													if(length(sessionReference$hashData[["Trailing"]])>0){paste("Refer:",sessionReference$idData[names(sessionReference$hashData[["Trailing"]])],":",names(sessionReference$hashData[["Trailing"]]))})
 							
 							hashData <- t(data.matrix(data.frame(allHashData)))
 							
