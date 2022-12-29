@@ -18,7 +18,11 @@ appScripts <- system.file("shiny_app", package="finFindR")
 #sapply(list.files(path=appScripts,pattern="*_serverside.R",full.names = T),source,.GlobalEnv)
 sapply(list.files(path=".",pattern="*_serverside.R",full.names = T),source,.GlobalEnv)
 
-networks <- system.file("extdata", package="finFindR")
+#networks <- system.file("extdata", package="finFindR")
+networks <- "../extdata"
+load(file.path(networks,"hashSVD.Rdata"))
+
+
 #pathNet <- mxnet::mx.model.load(file.path(networks,'SWA_finTrace_fin'), 1000)
 pathNet <- mxnet::mx.model.load(file.path("../../inst/extdata",'SWA_cont2_traceLong7_bn_6,10,5_RGB_fin'), 0000)
 #pathNet <- mxnet::mx.model.load(file.path("../../inst/extdata",'prime_traceLong2_bn_6,10,5_RGB_fin'), 0000)
@@ -574,7 +578,26 @@ function(input, output, session) {
 			rownames <- list(Trailing=NULL,Leading=NULL,Peduncle=NULL)
 			for(finPart in c("Trailing","Leading","Peduncle")){
 
-				tmpRowNames <- names(sessionQuery$idData[names(sessionQuery$hashData[[finPart]])])
+				#queryNamesPrev <- names(queryTmp[["Trailing"]])
+				#queryNames <- names(sessionQuery$hashData[[finPart]])
+				#querySharedNames <- merge(x=cbind(queryNamesPrev,1), y=cbind(queryNames,1), by.x="queryNamesPrev", by.y="queryNames",  all.y=F, all.x=F)[,1]
+				#queryTmp[[finPart]] <- lapply(querySharedNames,function(i){append(queryTmp[["Trailing"]][[i]],
+				#													sessionQuery$hashData[[finPart]][[i]][1:8])})
+				#names(queryTmp[[finPart]]) <- querySharedNames
+
+				#referNamesPrev <- names(referTmp[["Trailing"]])
+				#referNames <- names(sessionReference$hashData[[finPart]])
+				#referSharedNames <- merge(x=cbind(referNamesPrev,1), y=cbind(referNames,1), by.x="referNamesPrev", by.y="referNames",  all.y=F, all.x=F)[,1]
+				#referTmp[[finPart]] <- lapply(referSharedNames,function(i){append(referTmp[["Trailing"]][[i]],
+				#													sessionReference$hashData[[finPart]][[i]][1:8])})
+				#names(referTmp[[finPart]]) <- referSharedNames
+
+					#browser()
+				querySharedNames <- merge(x=cbind(queryNamesPrev=names(sessionQuery$hashData[["Trailing"]]),1),     y=cbind(queryNames=names(sessionQuery$hashData[[finPart]]),1),     by.x="queryNamesPrev", by.y="queryNames",  all.y=F, all.x=F)[,1]
+				#referSharedNames <- merge(x=cbind(referNamesPrev=names(sessionReference$hashData[["Trailing"]]),1), y=cbind(referNames=names(sessionReference$hashData[[finPart]]),1), by.x="referNamesPrev", by.y="referNames",  all.y=F, all.x=F)[,1]
+
+				tmpRowNames <- names(sessionQuery$idData[querySharedNames])
+				#tmpRowNames <- names(sessionQuery$idData[names(sessionQuery$hashData[[finPart]])])
 				rownames[[finPart]] <- paste(tmpRowNames,":",sessionQuery$idData[tmpRowNames])
 				#tmpRowNames <- names(sessionQuery$hashData[[finPart]])[!is.null(sessionQuery$hashData[[finPart]])]
 				#rownames <- paste(tmpRowNames,":",sessionQuery$idData[tmpRowNames])

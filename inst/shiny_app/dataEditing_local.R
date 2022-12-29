@@ -63,17 +63,47 @@ saveRetrace <- function(readyToRetrace,
 			print("prep trace")
 			# TODO: do we just retrace the whole thing?
 			targetEnvir$traceData[[input$segmentTarget]][readyToRetrace$imgName] <- list(encodePath(readyToRetrace$traceResults$coordinates))
-			targetEnvir$hashData[[input$segmentTarget]][readyToRetrace$imgName] <- traceToHash( list(readyToRetrace$traceResults$annulus ), mxnetModel  )
+			#targetEnvir$hashData[[input$segmentTarget]][readyToRetrace$imgName] <- traceToHash( list(readyToRetrace$traceResults$annulus ), mxnetModel  )
+			if(input$segmentTarget == "Trailing"){
+				targetEnvir$hashData[[input$segmentTarget]][readyToRetrace$imgName] <- as.data.frame(traceToHash( list(readyToRetrace$traceResults$annulus ), mxnetModel  ))
+				#hashData[[finPart]] <- as.data.frame(traceToHash(traceImg[[finPart]][failureIndex],mxnetModel))
+			}else{
+				hashDataPart <- traceToHash( list(readyToRetrace$traceResults$annulus ), mxnetModel  )
+				#hashDataPart <- as.data.frame(traceToHash(traceImg[[finPart]][failureIndex],mxnetModel))
+				targetEnvir$hashData[[input$segmentTarget]][readyToRetrace$imgName] <- as.data.frame(t(t(hashDataPart) %*% hashSVD$U %*% hashSVD$D))*1000
+				#targetEnvir$hashData[[input$segmentTarget]][readyToRetrace$imgName] <- traceToHash( list(readyToRetrace$traceResults$annulus ), mxnetModel  )
+			}
 			print("retrace hash calculated")
 			
 			# --- recalculate rank table ------------------
 			if(length(sessionReference$hashData[[input$segmentTarget]])>0)
 			{
-				newDistances <- distanceToRef( (unlist(targetEnvir$hashData[[input$segmentTarget]][readyToRetrace$imgName])),
-												data.frame(sessionReference$hashData[[input$segmentTarget]]))
+				#newDistances <- distanceToRef( (unlist(targetEnvir$hashData[[input$segmentTarget]][readyToRetrace$imgName])),
+				#								data.frame(sessionReference$hashData[[input$segmentTarget]]))
+				# NOTE: I think we can calculate these things seprately
+				if(input$segmentTarget != "Trailing"){
+					newDistances <- distanceToRef( unlist(targetEnvir$hashData[[input$segmentTarget]][readyToRetrace$imgName]),
+													cbind(data.frame(sessionReference$hashData[[input$segmentTarget]]),(sessionReference$hashData[["Trailing"]]) ) )
+				}
 				# make sure to clip to correct number of columns
 				#newSortingIndex <- order(newDistances)[1:ncol(rankTable$Name)]
-				newSortingIndex <- order(newDistances)[1:length(sessionReference$hashData[[input$segmentTarget]])]
+				tmpNames <- sapply(strsplit(rownames(rankTableParts[[input$segmentTarget]]$Name)," : "),function(x)x[[1]])
+				#queryNamesPrev <- names(queryTmp[["Trailing"]])
+				#queryNames <- names(sessionQuery$hashData[[finPart]])
+				#querySharedNames <- merge(x=cbind(queryNamesPrev,1), y=cbind(queryNames,1), by.x="queryNamesPrev", by.y="queryNames",  all.y=F, all.x=F)[,1]
+				#queryTmp[[finPart]] <- lapply(querySharedNames,function(i){append(queryTmp[["Trailing"]][[i]],
+				#													sessionQuery$hashData[[finPart]][[i]][1:8])})
+				#names(queryTmp[[finPart]]) <- querySharedNames
+
+				#referNamesPrev <- names(referTmp[["Trailing"]])
+				#referNames <- names(sessionReference$hashData[[finPart]])
+				#referSharedNames <- merge(x=cbind(referNamesPrev,1), y=cbind(referNames,1), by.x="referNamesPrev", by.y="referNames",  all.y=F, all.x=F)[,1]
+				#referTmp[[finPart]] <- lapply(referSharedNames,function(i){append(referTmp[["Trailing"]][[i]],
+				#													sessionReference$hashData[[finPart]][[i]][1:8])})
+				#names(referTmp[[finPart]]) <- referSharedNames
+				referSharedNames <- merge(x=cbind(referNamesPrev=names(sessionReference$hashData[["Trailing"]]),1), y=cbind(referNames=names(sessionReference$hashData[[input$segmentTarget]]),1), by.x="referNamesPrev", by.y="referNames",  all.y=F, all.x=F)[,1]
+				newSortingIndex <- order(newDistances)[1:length(referSharedNames)]
+				#newSortingIndex <- order(newDistances)[1:length(sessionReference$hashData[[input$segmentTarget]])]
 				
 				#rankTable$Name[readyToRetrace$rowName,] <- names(sessionReference$idData[newSortingIndex])
 				#rankTable$NameSimple[readyToRetrace$rowName,] <- basename(names(sessionReference$idData[newSortingIndex]))
@@ -97,7 +127,7 @@ saveRetrace <- function(readyToRetrace,
 				#	DistanceParts[[input$segmentTarget]][readyToRetrace$rowName,] <- newDistances[newSortingIndex]
 				#}
 				rankTable$editCount <- rankTable$editCount+1
-				updateDisplayTables(finPartSelected=input$targetFeatures, rankTableParts, rankTable)
+				#updateDisplayTables(finPartSelected=input$targetFeatures, rankTableParts, rankTable)
 			}
 			# ---------------------------------------------
 			

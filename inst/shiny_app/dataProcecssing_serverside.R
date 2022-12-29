@@ -207,7 +207,15 @@ processImageData <- function(directory,
 		for(finPart in finParts){
 			failureIndex <- !sapply(traceImg[[finPart]],is.null)
 			#TODO: remove nulls before traceToHash and then add them back?
-			hashData[[finPart]] <- as.data.frame(traceToHash(traceImg[[finPart]][failureIndex],mxnetModel))
+
+			if(finPart == "Trailing"){
+				hashData[[finPart]] <- as.data.frame(traceToHash(traceImg[[finPart]][failureIndex],mxnetModel))
+			}else{
+				hashDataPart <- as.data.frame(traceToHash(traceImg[[finPart]][failureIndex],mxnetModel))
+				hashData[[finPart]] <- as.data.frame(t(t(hashDataPart) %*% hashSVD$U %*% hashSVD$D))*1000
+			}
+
+			#hashData[[finPart]] <- as.data.frame(traceToHash(traceImg[[finPart]][failureIndex],mxnetModel))
 			#if(any(processIndex)){
 			#		hashData[[finPart]][which(!failureIndex)] <- list(NULL)
 			#}
@@ -282,6 +290,9 @@ calculateRankTable <- function(rankTable,
 	counterEnvir$progressTicker <- 0
 	counterEnvir$reactiveDomain <- getDefaultReactiveDomain()
 	counterEnvir$length <- length(sessionQuery$hashData)
+
+	finPartCombos <- unique(lapply(apply(expand.grid(rep(list(c("Trailing","Leading","Peduncle")),3)),1,unique),sort))
+
 	
 	
 	withProgress(
@@ -296,18 +307,35 @@ calculateRankTable <- function(rankTable,
 		queryTmp[["Trailing"]] <- sessionQuery$hashData[["Trailing"]]
 		referTmp[["Trailing"]] <- sessionReference$hashData[["Trailing"]]
 		prevFinPart <- "Trailing"
+		#for(finPart in c("Leading","Peduncle")){
+		#	queryNamesPrev <- names(queryTmp[[prevFinPart]])
+		#	queryNames <- names(sessionQuery$hashData[[finPart]])
+		#	querySharedNames <- merge(x=cbind(queryNamesPrev,1), y=cbind(queryNames,1), by.x="queryNamesPrev", by.y="queryNames",  all.y=F, all.x=F)[,1]
+		#	queryTmp[[finPart]] <- lapply(querySharedNames,function(i){append(queryTmp[[prevFinPart]][[i]],
+		#														sessionQuery$hashData[[finPart]][[i]][1:8])})
+		#	names(queryTmp[[finPart]]) <- querySharedNames
+
+		#	referNamesPrev <- names(referTmp[[prevFinPart]])
+		#	referNames <- names(sessionReference$hashData[[finPart]])
+		#	referSharedNames <- merge(x=cbind(referNamesPrev,1), y=cbind(referNames,1), by.x="referNamesPrev", by.y="referNames",  all.y=F, all.x=F)[,1]
+		#	referTmp[[finPart]] <- lapply(referSharedNames,function(i){append(referTmp[[prevFinPart]][[i]],
+		#														sessionReference$hashData[[finPart]][[i]][1:8])})
+		#	names(referTmp[[finPart]]) <- referSharedNames
+		##	prevFinPart <- finPart
+		#}
 		for(finPart in c("Leading","Peduncle")){
-			queryNamesPrev <- names(queryTmp[[prevFinPart]])
+				browser()
+			queryNamesPrev <- names(queryTmp[["Trailing"]])
 			queryNames <- names(sessionQuery$hashData[[finPart]])
 			querySharedNames <- merge(x=cbind(queryNamesPrev,1), y=cbind(queryNames,1), by.x="queryNamesPrev", by.y="queryNames",  all.y=F, all.x=F)[,1]
-			queryTmp[[finPart]] <- lapply(querySharedNames,function(i){append(queryTmp[[prevFinPart]][[i]],
+			queryTmp[[finPart]] <- lapply(querySharedNames,function(i){append(queryTmp[["Trailing"]][[i]],
 																sessionQuery$hashData[[finPart]][[i]][1:8])})
 			names(queryTmp[[finPart]]) <- querySharedNames
 
-			referNamesPrev <- names(referTmp[[prevFinPart]])
+			referNamesPrev <- names(referTmp[["Trailing"]])
 			referNames <- names(sessionReference$hashData[[finPart]])
 			referSharedNames <- merge(x=cbind(referNamesPrev,1), y=cbind(referNames,1), by.x="referNamesPrev", by.y="referNames",  all.y=F, all.x=F)[,1]
-			referTmp[[finPart]] <- lapply(referSharedNames,function(i){append(referTmp[[prevFinPart]][[i]],
+			referTmp[[finPart]] <- lapply(referSharedNames,function(i){append(referTmp[["Trailing"]][[i]],
 																sessionReference$hashData[[finPart]][[i]][1:8])})
 			names(referTmp[[finPart]]) <- referSharedNames
 		#	prevFinPart <- finPart
@@ -359,7 +387,9 @@ calculateRankTable <- function(rankTable,
 					#NOTE: none of the names should be missing, just null, so alignment should not be issue
 					#TODO: tho the comparison table shouldnt have all images, so we need to subset by hashData null?
 					#tmpRowNames <- names(sessionQuery$hashData[[finPart]])[!is.null(sessionQuery$hashData[[finPart]])]
-					tmpRowNames <- names(sessionQuery$idData[names(sessionQuery$hashData[[finPart]])])
+
+					#tmpRowNames <- names(sessionQuery$idData[names(sessionQuery$hashData[[finPart]])])
+					tmpRowNames <- names(sessionQuery$idData[names(queryTmp[[finPart]])])
 					rownames[[finPart]] <- paste(tmpRowNames,":",sessionQuery$idData[tmpRowNames])
 				}
 				
@@ -369,8 +399,10 @@ calculateRankTable <- function(rankTable,
 				#simpleNamesVec <- basename(names(sessionReference$idData))
 				for(finPart in c("Trailing","Leading","Peduncle")){
 					#TODO: comparisonResults wont have every image name represented and so idData must be subset unlike abovee
-					rankTableParts[[finPart]]$Name <- apply(comparisonResults[[finPart]]$sortingIndex,1,function(x)names(sessionReference$idData)[x])
-					simpleNamesVec[[finPart]] <- basename(names(sessionReference$idData))
+					#rankTableParts[[finPart]]$Name <- apply(comparisonResults[[finPart]]$sortingIndex,1,function(x)names(sessionReference$idData[names(sessionReference$hashData[[finPart]])])[x])
+					rankTableParts[[finPart]]$Name <- apply(comparisonResults[[finPart]]$sortingIndex,1,function(x)names(sessionReference$idData[names(referTmp[[finPart]])])[x])
+					#simpleNamesVec[[finPart]] <- basename(names(sessionReference$idData[names(sessionReference$hashData[[finPart]])]))
+					simpleNamesVec[[finPart]] <- basename(names(sessionReference$idData[names(referTmp[[finPart]])]))
 				}
 				incProgress(1/8)
 
