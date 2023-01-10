@@ -4,9 +4,9 @@ library("imager")
 library("finFindR")
 #NOTE: dont forget to removee
 #source("../../R/extractFeatures.R")
-sapply(list.files(path="../../R/",pattern="*.R$",full.names = T),source,.GlobalEnv)
-library("Rcpp")
-sapply(list.files(path="../../src/",pattern="*.cpp$",full.names = T),sourceCpp)
+#sapply(list.files(path="../../R/",pattern="*.R$",full.names = T),source,.GlobalEnv)
+#library("Rcpp")
+#sapply(list.files(path="../../src/",pattern="*.cpp$",full.names = T),sourceCpp)
 
 options(shiny.maxRequestSize=10*1024^2)
 options(stringsAsFactors=FALSE)
@@ -15,17 +15,19 @@ appendRecursive <- TRUE
 plotLim <- 4
 
 appScripts <- system.file("shiny_app", package="finFindR")
-#sapply(list.files(path=appScripts,pattern="*_serverside.R",full.names = T),source,.GlobalEnv)
-sapply(list.files(path=".",pattern="*_serverside.R",full.names = T),source,.GlobalEnv)
+sapply(list.files(path=appScripts,pattern="*_serverside.R",full.names = T),source,.GlobalEnv)
+#sapply(list.files(path=".",       pattern="*_serverside.R",full.names = T),source,.GlobalEnv)
 
-#networks <- system.file("extdata", package="finFindR")
-networks <- "../extdata"
-load(file.path(networks,"hashSVD.Rdata"))
-
+networks <- system.file("extdata", package="finFindR")
+#networks <- "../extdata"
+#load(file.path(networks,"hashSVD.Rdata"))
+load(file.path(system.file("extdata", package="finFindR"),"hashSVD.Rdata"))
 
 #pathNet <- mxnet::mx.model.load(file.path(networks,'SWA_finTrace_fin'), 1000)
-pathNet <- mxnet::mx.model.load(file.path("../../inst/extdata",'SWA_cont2_traceLong7_bn_6,10,5_RGB_fin'), 0000)
+pathNet <- mxnet::mx.model.load(file.path(networks,             'SWA_cont2_traceLong7_bn_6,10,5_RGB_fin'), 0000)
+#pathNet <- mxnet::mx.model.load(file.path("../../inst/extdata",'SWA_cont2_traceLong7_bn_6,10,5_RGB_fin'), 0000)
 #pathNet <- mxnet::mx.model.load(file.path("../../inst/extdata",'prime_traceLong2_bn_6,10,5_RGB_fin'), 0000)
+
 cropNet <- mxnet::mx.model.load(file.path(networks,'cropperInit'), 941)
 mxnetModel <- mxnet::mx.model.load(file.path(networks,'fin_triplet32_4096_final'), 5600)
 
@@ -36,15 +38,17 @@ mxnetModel <- mxnet::mx.model.load(file.path(networks,'fin_triplet32_4096_final'
 function(input, output, session) {
 	
 	# -- get functions used locally
-	for (file in list.files(path=".",pattern="*_local.R",full.names = T))
-	{
-		source(file,local = T)
-	}
-	#for (file in list.files(path=appScripts,pattern="*_local.R",full.names = T))
+	#for (file in list.files(path=".",pattern="*_local.R",full.names = T))
 	#{
 	#	source(file,local = T)
 	#}
-	
+	for (file in list.files(path=appScripts,pattern="*_local.R",full.names = T))
+	{
+		source(file,local = T)
+	}
+  #load(file.path(system.file("extdata", package="finFindR"),"hashSVD.Rdata"))
+  #print(hashSVD$U)
+  
 	# --- stop r from app ui
 	session$onSessionEnded(function(){
 		stopApp()
@@ -1088,7 +1092,6 @@ function(input, output, session) {
 													if(length(sessionReference$hashData[["Trailing"]])>0){paste("Refer:",sessionReference$idData[names(sessionReference$hashData[["Trailing"]])],":",names(sessionReference$hashData[["Trailing"]]))})
 							
 							hashData <- t(data.matrix(data.frame(allHashData)))
-							
 							# simplify the display name (space denotes second "* : *" instead of first "*: *")
 							rownames(hashData) <- lapply(strsplit(hashRow$names," : "),function(x){paste(x[1],basename(x[2]),sep = " : ")})
 							
@@ -1323,7 +1326,7 @@ function(input, output, session) {
 		{
 			targetEnvir <- sessionQuery
 			allowEdit <- T
-			targetDir <- normalizePath(file.path(input$queryDirectory,imageRegister))
+			targetDir <- normalizePath(file.path(input$queryDirectory,imageRegister),"/")
 		}else{
 			targetEnvir <- sessionReference
 			allowEdit <- F

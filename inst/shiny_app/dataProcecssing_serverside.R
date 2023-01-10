@@ -97,6 +97,9 @@ processImageData <- function(directory,
 	
 	if(typeof(imgPaths) != "try-error" && length(imgPaths)!=0)
 	{
+	  load(file.path(system.file("extdata", package="finFindR"),"hashSVD.Rdata"))
+	  print(hashSVD$U)
+	  
 		remove <- NULL
 		
 		#hashData <- list()
@@ -164,7 +167,7 @@ processImageData <- function(directory,
 					"Peduncle"=list(justStartCoord=traceResults[["Trailing"]]$coordinates[nrow(traceResults[["Trailing"]]$coordinates),], userNetOut=reuseData$userNetOut),
 					"Leading"=list(justStartCoord=traceResults[["Trailing"]]$coordinates[1,], userNetOut=reuseData$userNetOut)
 				)
-				result <- try(traceFromImage(fin=imager::load.image(img),startStopCoords = NULL,pathNet = pathNet, edgeChan=selectedChan[[finPart]], justStartCoord=reuseData$justStartCoord, userNetOut=reuseData$userNetOut))
+				result <- try(invisible(traceFromImage(fin=imager::load.image(img),startStopCoords = NULL,pathNet = pathNet, edgeChan=selectedChan[[finPart]], justStartCoord=reuseData$justStartCoord, userNetOut=reuseData$userNetOut)))
 				if(class(result)=="try-error"){
 					result <- list(annulus=NULL,coordinates=NULL,dim=NULL, netOut=NULL)
 				}
@@ -209,10 +212,10 @@ processImageData <- function(directory,
 			#TODO: remove nulls before traceToHash and then add them back?
 
 			if(finPart == "Trailing"){
-				hashData[[finPart]] <- as.data.frame(traceToHash(traceImg[[finPart]][failureIndex],mxnetModel))
+				hashData[[finPart]] <- as.data.frame(traceToHash(traceImg[[finPart]][failureIndex],mxnetModel),check.names=F)
 			}else{
-				hashDataPart <- as.data.frame(traceToHash(traceImg[[finPart]][failureIndex],mxnetModel))
-				hashData[[finPart]] <- as.data.frame(t(t(hashDataPart) %*% hashSVD$U %*% hashSVD$D))*1000
+				hashDataPart <- as.data.frame(traceToHash(traceImg[[finPart]][failureIndex],mxnetModel),check.names=F)
+				hashData[[finPart]] <- as.data.frame(t(t(hashDataPart) %*% hashSVD$U %*% hashSVD$D),check.names=F,check.names=F)*1000
 			}
 
 			#hashData[[finPart]] <- as.data.frame(traceToHash(traceImg[[finPart]][failureIndex],mxnetModel))
@@ -324,7 +327,6 @@ calculateRankTable <- function(rankTable,
 		##	prevFinPart <- finPart
 		#}
 		for(finPart in c("Leading","Peduncle")){
-				browser()
 			queryNamesPrev <- names(queryTmp[["Trailing"]])
 			queryNames <- names(sessionQuery$hashData[[finPart]])
 			querySharedNames <- merge(x=cbind(queryNamesPrev,1), y=cbind(queryNames,1), by.x="queryNamesPrev", by.y="queryNames",  all.y=F, all.x=F)[,1]
@@ -343,6 +345,7 @@ calculateRankTable <- function(rankTable,
 
 		print("compare")
 		for(finPart in c("Trailing","Leading","Peduncle")){
+		  
 			#comparisonResults[[finPart]] <- distanceToRefParallel(queryHashData=sessionQuery$hashData[[finPart]],
 			#											referenceHashData=sessionReference$hashData[[finPart]],
 			comparisonResults[[finPart]] <- distanceToRefParallel(queryHashData= queryTmp[[finPart]],
@@ -417,8 +420,8 @@ calculateRankTable <- function(rankTable,
 					if(nrow(comparisonResults[[finPart]]$distances)>0)
 					{
 						rankTableParts[[finPart]]$NameSimple <- apply(comparisonResults[[finPart]]$sortingIndex,1,function(x)simpleNamesVec[[finPart]][x])
-						rankTableParts[[finPart]]$Name <- as.data.frame((rankTableParts[[finPart]]$Name))
-						rankTableParts[[finPart]]$NameSimple <- as.data.frame((rankTableParts[[finPart]]$NameSimple))
+						rankTableParts[[finPart]]$Name <- as.data.frame((rankTableParts[[finPart]]$Name),check.names=F)
+						rankTableParts[[finPart]]$NameSimple <- as.data.frame((rankTableParts[[finPart]]$NameSimple),check.names=F)
 						#TODO: we may need rownames split by finPart?
 						rownames(rankTableParts[[finPart]]$Name) <- rownames[[finPart]] 
 						rownames(rankTableParts[[finPart]]$NameSimple) <- rownames[[finPart]] 
@@ -434,7 +437,7 @@ calculateRankTable <- function(rankTable,
 				for(finPart in c("Trailing","Leading","Peduncle")){
 					rankTableParts[[finPart]]$ID <- apply(comparisonResults[[finPart]]$sortingIndex,1,function(x)sessionReference$idData[x])
 					# single queries need to be turned back from vectors
-					if(nrow(comparisonResults[[finPart]]$distances)<=1){rankTable$ID <- as.data.frame(t(rankTable$ID))}
+					if(nrow(comparisonResults[[finPart]]$distances)<=1){rankTable$ID <- as.data.frame(t(rankTable$ID),check.names=F)}
 					rownames(rankTableParts[[finPart]]$ID) <- rownames[[finPart]] 
 				}
 				

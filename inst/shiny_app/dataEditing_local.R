@@ -57,7 +57,8 @@ saveRetrace <- function(readyToRetrace,
 			print("saveRetrace57")
 	if(length(readyToRetrace$traceResults)>0)
 	{
-
+	  load(file.path(system.file("extdata", package="finFindR"),"hashSVD.Rdata"))
+	  
 
 		#for(finPart in c("trailing","leading")){
 			print("prep trace")
@@ -65,12 +66,12 @@ saveRetrace <- function(readyToRetrace,
 			targetEnvir$traceData[[input$segmentTarget]][readyToRetrace$imgName] <- list(encodePath(readyToRetrace$traceResults$coordinates))
 			#targetEnvir$hashData[[input$segmentTarget]][readyToRetrace$imgName] <- traceToHash( list(readyToRetrace$traceResults$annulus ), mxnetModel  )
 			if(input$segmentTarget == "Trailing"){
-				targetEnvir$hashData[[input$segmentTarget]][readyToRetrace$imgName] <- as.data.frame(traceToHash( list(readyToRetrace$traceResults$annulus ), mxnetModel  ))
+				targetEnvir$hashData[[input$segmentTarget]][readyToRetrace$imgName] <- as.data.frame(traceToHash( list(readyToRetrace$traceResults$annulus ), mxnetModel  ),check.names=F)
 				#hashData[[finPart]] <- as.data.frame(traceToHash(traceImg[[finPart]][failureIndex],mxnetModel))
 			}else{
-				hashDataPart <- traceToHash( list(readyToRetrace$traceResults$annulus ), mxnetModel  )
+				hashDataPart <- as.data.frame(traceToHash( list(readyToRetrace$traceResults$annulus ), mxnetModel  ),check.names=F)
 				#hashDataPart <- as.data.frame(traceToHash(traceImg[[finPart]][failureIndex],mxnetModel))
-				targetEnvir$hashData[[input$segmentTarget]][readyToRetrace$imgName] <- as.data.frame(t(t(hashDataPart) %*% hashSVD$U %*% hashSVD$D))*1000
+				targetEnvir$hashData[[input$segmentTarget]][readyToRetrace$imgName] <- as.data.frame(t(t(hashDataPart) %*% hashSVD$U %*% hashSVD$D),check.names=F)*1000
 				#targetEnvir$hashData[[input$segmentTarget]][readyToRetrace$imgName] <- traceToHash( list(readyToRetrace$traceResults$annulus ), mxnetModel  )
 			}
 			print("retrace hash calculated")
