@@ -206,13 +206,23 @@ fluidPage(
 														 choices = c(5,10,20,50),
 														 selected = 10
 													 ),
-													radioButtons(
+													checkboxGroupInput(
 														inputId = "targetFeatures",
 														label = "Select target features for comparisons",
 														choices = c("Trailing","Leading","Peduncle"),
-														inline = T, 
 														selected="Trailing",
+														inline = T,
+														width = NULL,
+														choiceNames = NULL,
+														choiceValues = NULL
 													),
+													#radioButtons(
+													#	inputId = "targetFeatures",
+													#	label = "Select target features for comparisons",
+													#	choices = c("Trailing","Leading","Peduncle"),
+													#	inline = T, 
+													#	selected="Trailing",
+													#),
 													 fluidRow(
 														 column(width=6,
 																		checkboxInput(

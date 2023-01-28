@@ -111,7 +111,7 @@ generateDisplayHeader <- function(instance,
 
 			h4("Click start point then Click end point"),
 			actionButton(paste0("cancelRetrace",instance),"Cancel"),
-			actionButton(paste0("saveRetrace",instance),"Save")
+			actionButton(paste0("saveRetrace",instance),"Keep Change")
 		))
 		
 	}else{

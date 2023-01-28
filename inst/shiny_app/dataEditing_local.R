@@ -71,7 +71,7 @@ saveRetrace <- function(readyToRetrace,
 			}else{
 				hashDataPart <- as.data.frame(traceToHash( list(readyToRetrace$traceResults$annulus ), mxnetModel  ),check.names=F)
 				#hashDataPart <- as.data.frame(traceToHash(traceImg[[finPart]][failureIndex],mxnetModel))
-				targetEnvir$hashData[[input$segmentTarget]][readyToRetrace$imgName] <- as.data.frame(t(t(hashDataPart) %*% hashSVD$U %*% hashSVD$D),check.names=F)*1000
+				targetEnvir$hashData[[input$segmentTarget]][readyToRetrace$imgName] <- as.data.frame(t(t(hashDataPart) %*% hashSVD$U %*% hashSVD$D),check.names=F)*10000
 				#targetEnvir$hashData[[input$segmentTarget]][readyToRetrace$imgName] <- traceToHash( list(readyToRetrace$traceResults$annulus ), mxnetModel  )
 			}
 			print("retrace hash calculated")

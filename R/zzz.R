@@ -18,6 +18,7 @@
                                           print(paste0("shp:",data.shape))
                                           array_iter <- mx.io.arrayiter(data,
                                                                         label=rep(0,ncol(data)),
+                                                                        #label=rep(0,max(ncol(data),1,na.rm=T)),
                                                                         batch.size=min(ncol(data),128))
                                           
                                           .self$iter <- array_iter

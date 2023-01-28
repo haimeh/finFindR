@@ -11,7 +11,8 @@ traceToHash <- function(traceData,
   finIter <- getRefClass("finIter",where = as.environment(".finFindREnv"))
   if (is.null(mxnetModel))
   {
-    mxnetModel <- mxnet::mx.model.load(file.path( system.file("extdata", package="finFindR"),'fin_triplet32_4096_final'), 5600)
+    stop("No model in traceToHash")
+    #mxnetModel <- mxnet::mx.model.load(file.path( system.file("extdata", package="finFindR"),'fin_triplet32_4096_final'), 5600)
   }
   print("iter")
   iterInputFormat <- sapply(traceData,function(x){as.numeric(resize(x,size_x = 300,interpolation_type = 6))})

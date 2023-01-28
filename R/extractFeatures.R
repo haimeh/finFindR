@@ -30,7 +30,7 @@ mx.simple.bind_tst <- function(symbol, ctx, dtype ,grad.req = "null", fixed.para
   if (is.null(slist)) {
     stop("Need more shape information to decide the shapes of arguments")
   }
-  print(slist$arg.shapes)
+  #print(slist$arg.shapes)
   if ( any(sapply(slist$arg.shapes,anyNA)) ) browser()
 
   arg.arrays <- sapply(slist$arg.shapes, function(shape) {
@@ -373,7 +373,7 @@ traceFromCannyEdges <- function(pathMap,
 traceFromImage <- function(fin,
 							startStopCoords = NULL,
 							pathNet = NULL,
-							edgeChan = 3,
+							edgeChan = 4,
 							justStartCoord = NULL,
 							userNetOut = NULL)
 {
@@ -385,8 +385,14 @@ traceFromImage <- function(fin,
 			# channel 5 : tip
 			# channel 6 : leading
 			#selectedChan <- c("Peduncle"=2,"Trailing"=4,"Leading"=6)
+	if(edgeChan==2){
+		tipChan <- 3
+	}else{
+		tipChan <- 5
+	}
+
 	if(!(edgeChan %in% c(2,4,6))){stop("Not a valid channel")}
-	if(is.null(pathNet) & is.null(userNetOut))(pathNet <- mxnet::mx.model.load(file.path(system.file("extdata", package="finFindR"),'SWA_finTrace_fin'), 1000))
+	if(is.null(pathNet) & is.null(userNetOut))(pathNet <- mxnet::mx.model.load(file.path(system.file("extdata", package="finFindR"),'SWA_cont2_traceLong7_bn_6,10,5_RGB_fin'), 000))
 	if(!is.cimg(fin)){stop("fin must be Jpeg of type cimg")}
 	if(!("MXFeedForwardModel" %in% class(pathNet)) & is.null(userNetOut)){stop("network must be of class MXFeedForwardModel")}
 	
@@ -421,14 +427,19 @@ traceFromImage <- function(fin,
 
 		# sometimes the images are poorly cropped and so we check if we want to process a sub image
 		## %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-		finRange <- apply(get.locations(dilate_square(as.cimg(netOutRaw[,,1,]) < .75,5), as.logical)[,1:2],2,range)
+		#finRange <- apply(get.locations(dilate_square(as.cimg(netOutRaw[,,1,]) < .75,5), as.logical)[,1:2],2,range)
+		finAllRange <- apply(get.locations(dilate_square(as.cimg(netOutRaw[,,1,]) < .75,5), as.logical)[,1:2],2,range)
+		finAllSpan <- finAllRange[2,]-finAllRange[1,]
+		finRange <- apply(get.locations(dilate_square(as.cimg(netOutRaw[,,c(edgeChan,tipChan),]) > .25,5), as.logical)[,1:2],2,range)
 		finSpan <- finRange[2,]-finRange[1,]
 		# if we dont cover at least 60% of the image..
-		if(any((dim(netOutRaw)[1:2] - finSpan) > (dim(netOutRaw)[1:2]*.4))){
+		if(any(finSpan > .1*finAllSpan) & (any((dim(netOutRaw)[1:2] - finSpan) > (dim(netOutRaw)[1:2]*.4)))){
+		#if((any((dim(netOutRaw)[1:2] - finSpan) > (dim(netOutRaw)[1:2]*.4)))){
+			print("zoom")
 			#netOutRawOri <- netOutRaw
 			finInEnlargeRatio<- 200/max(finSpan)
 			
-			netIn <- shrinkDomDim(fin, round(200*finInEnlargeRatio) )#200
+			netIn <- shrinkDomDim(fin, floor(200*finInEnlargeRatio) )#200
 			newDim <- dim(netIn)
 			oriToNetResizeFactors <- c(dim(fin)[1]/newDim[1],dim(fin)[2]/newDim[2])
 			netIn <- as.array(netIn)
@@ -438,15 +449,17 @@ traceFromImage <- function(fin,
 			finRangeEnlarged[,"x"] <- pClip(finRangeEnlarged[,"x"],1,dim(netIn)[1])
 			finRangeEnlarged[,"y"] <- pClip(finRangeEnlarged[,"y"],1,dim(netIn)[2])
 
-			netInReduced <- netIn[finRangeEnlarged[1,"x"]:finRangeEnlarged[2,"x"], 
-														finRangeEnlarged[1,"y"]:finRangeEnlarged[2,"y"],,,drop=F]
+			netInReduced <- netIn[finRangeEnlarged[1,"x"]:(finRangeEnlarged[2,"x"]), 
+								finRangeEnlarged[1,"y"]:(finRangeEnlarged[2,"y"]),,,drop=F]
 
 			# we want to increase the size of the netIn so that the sub image is the target of shrinkDomDim
 			# then crop it and run it, and then buffer the netOut to be like the netIn
-			finImIter <- mx.io.arrayiter(netInReduced,
+			finImIter <- mx.io.arrayiter(as.array(netInReduced),
+			#finImIter <- mx.io.arrayiter(aperm(as.array(netInReduced),c(2,1,3,4)),
 											label=0,
 											batch.size=1)
-			netOutRawReduced <- mxnet:::predict.MXFeedForwardModel(X=finImIter,model=pathNet,ctx=mxnet::mx.cpu(),array.layout = "colmajor")
+			#netOutRawReduced <- mxnet:::predict.MXFeedForwardModel(X=finImIter,model=pathNet,ctx=mxnet::mx.cpu(),array.layout = "colmajor")
+			netOutRawReduced <- predict.MXFeedForwardModel_tst(X=finImIter,model=pathNet,ctx=mxnet::mx.cpu(),array.layout = "colmajor")
 			netOutRaw <- as.array(resize(netOutRaw, interpolation_type=3, size_x=newDim[1], size_y=newDim[2]))
 			#netOutRaw <- array(c(rep(1,prod(dim(netIn)[1:2])), rep(0,prod(dim(netIn)[1:2])*(dim(netOutRawReduced)[3]-1) )),
 			#										c(dim(netIn)[1:2],dim(netOutRawReduced)[3],1))
@@ -460,17 +473,13 @@ traceFromImage <- function(fin,
 	estHighlight <- threshold(netIn,.97)
 	cropRot <- dilate_square((netIn==0.0),5) | dilate_square((netIn==1.0),3)
 	if(any(cropRot)){
+		print("fill glare")
 		netIn[as.logical(cropRot)]<-0
 		netIn <- fillGlare(netIn, get.locations(cropRot,as.logical)-1)
 	}
 	netIn <- as.array(netIn)
 
 
-	if(edgeChan==2){
-		tipChan <- 3
-	}else{
-		tipChan <- 5
-	}
 	if(is.null(startStopCoords))
 	{
 		# channel 1 : all
@@ -900,6 +909,7 @@ traceFromImage <- function(fin,
 	print(startPoint)
 	pathMap <- minimalEdge*sorbel
 
+	print("trace")
 	#NOTE: the resized junk path applies only to fin, first move then cumu resize?
 	pathDF <- traceFromCannyEdges(as.matrix(pathMap), 
 								round(startPoint),

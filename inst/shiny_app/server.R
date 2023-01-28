@@ -3,10 +3,7 @@ library("DT")
 library("imager")
 library("finFindR")
 #NOTE: dont forget to removee
-#source("../../R/extractFeatures.R")
-#sapply(list.files(path="../../R/",pattern="*.R$",full.names = T),source,.GlobalEnv)
-#library("Rcpp")
-#sapply(list.files(path="../../src/",pattern="*.cpp$",full.names = T),sourceCpp)
+#sapply(list.files(path="../../R/",pattern="*.R$",full.names = T),source,.GlobalEnv);library("Rcpp");sapply(list.files(path="../../src/",pattern="*.cpp$",full.names = T),function(x){sourceCpp(x,rebuild=T,verbose=T)})
 
 options(shiny.maxRequestSize=10*1024^2)
 options(stringsAsFactors=FALSE)
@@ -68,20 +65,37 @@ function(input, output, session) {
 												mode="default")
 	
 	
+	finPartCombos <- unique(lapply(apply(expand.grid(rep(list(c("Trailing","Leading","Peduncle")),3)),1,unique),sort))
+
+	#ifelse(length(ifelse(length(input$targetFeatures)==0,finPartCombos[[1]][1],input$targetFeatures))==0,finPartCombos[[1]][1],ifelse(length(input$targetFeatures)==0,finPartCombos[[1]][1],input$targetFeatures))
+	#observeEvent(ifelse(length(input$targetFeatures)==0,finPartCombos[[1]][1],input$targetFeatures),{
+	#	#print(ifelse(length(input$targetFeatures)==0,finPartCombos[[1]][1],input$targetFeatures))
+	#	#if(is.null(ifelse(length(input$targetFeatures)==0,finPartCombos[[1]][1],input$targetFeatures))){
+	#	if(length(ifelse(length(input$targetFeatures)==0,finPartCombos[[1]][1],input$targetFeatures))==0){
+	#	updateCheckboxGroupInput(session,
+	#							inputId = "targetFeatures",
+	#							label = "Select target features for comparisons",
+	#							choices = c("Trailing","Leading","Peduncle"),
+	#							selected="Trailing",
+	#	)
+	#	}
+	#})
 	# --- clear session memory
 	observeEvent(input$clearQuery,{
 		for(finPart in c("Trailing","Leading","Peduncle")){
 			sessionQuery$hashData[[finPart]] <- NULL
 			sessionQuery$traceData[[finPart]] <- list()
+		}
+		for(finParts in finPartCombos){
 
-			rankTableUniqueOnlyParts[[finPart]]$NameSimple <- NULL
-			rankTableUniqueOnlyParts[[finPart]]$Name <- NULL
-			rankTableUniqueOnlyParts[[finPart]]$ID <- NULL
-			rankTableUniqueOnlyParts[[finPart]]$Distance <- NULL
-			rankTableParts[[finPart]]$NameSimple <- NULL
-			rankTableParts[[finPart]]$Name <- NULL
-			rankTableParts[[finPart]]$ID <- NULL
-			rankTableParts[[finPart]]$Distance <- NULL
+			rankTableUniqueOnlyParts[[paste0(sort(finParts),collapse="")]]$NameSimple <- NULL
+			rankTableUniqueOnlyParts[[paste0(sort(finParts),collapse="")]]$Name <- NULL
+			rankTableUniqueOnlyParts[[paste0(sort(finParts),collapse="")]]$ID <- NULL
+			rankTableUniqueOnlyParts[[paste0(sort(finParts),collapse="")]]$Distance <- NULL
+			rankTableParts[[paste0(sort(finParts),collapse="")]]$NameSimple <- NULL
+			rankTableParts[[paste0(sort(finParts),collapse="")]]$Name <- NULL
+			rankTableParts[[paste0(sort(finParts),collapse="")]]$ID <- NULL
+			rankTableParts[[paste0(sort(finParts),collapse="")]]$Distance <- NULL
 		}
 
 		rankTable$editCount <- rankTable$editCount+1
@@ -91,15 +105,17 @@ function(input, output, session) {
 		for(finPart in c("Trailing","Leading","Peduncle")){
 			sessionReference$hashData[[finPart]] <- NULL
 			sessionReference$traceData[[finPart]] <- list()
+		}
+		for(finParts in finPartCombos){
 
-			rankTableUniqueOnlyParts[[finPart]]$NameSimple <- NULL
-			rankTableUniqueOnlyParts[[finPart]]$Name <- NULL
-			rankTableUniqueOnlyParts[[finPart]]$ID <- NULL
-			rankTableUniqueOnlyParts[[finPart]]$Distance <- NULL
-			rankTableParts[[finPart]]$NameSimple <- NULL
-			rankTableParts[[finPart]]$Name <- NULL
-			rankTableParts[[finPart]]$ID <- NULL
-			rankTableParts[[finPart]]$Distance <- NULL
+			rankTableUniqueOnlyParts[[paste0(sort(finParts),collapse="")]]$NameSimple <- NULL
+			rankTableUniqueOnlyParts[[paste0(sort(finParts),collapse="")]]$Name <- NULL
+			rankTableUniqueOnlyParts[[paste0(sort(finParts),collapse="")]]$ID <- NULL
+			rankTableUniqueOnlyParts[[paste0(sort(finParts),collapse="")]]$Distance <- NULL
+			rankTableParts[[paste0(sort(finParts),collapse="")]]$NameSimple <- NULL
+			rankTableParts[[paste0(sort(finParts),collapse="")]]$Name <- NULL
+			rankTableParts[[paste0(sort(finParts),collapse="")]]$ID <- NULL
+			rankTableParts[[paste0(sort(finParts),collapse="")]]$Distance <- NULL
 		}
 		rankTableUniqueOnly$NameSimple <- NULL
 		rankTableUniqueOnly$Name <- NULL
@@ -115,38 +131,51 @@ function(input, output, session) {
 	})
 
 	rankTableParts <- new.env()
-		rankTableParts$Trailing = reactiveValues(Name=NULL,
-									NameSimple=NULL,
-									ID=NULL,
-									Unique=NULL,
-									Distance=NULL,
-									editCount=0)
-		rankTableParts$Leading = reactiveValues(Name=NULL,
-									NameSimple=NULL,
-									ID=NULL,
-									Unique=NULL,
-									Distance=NULL,
-									editCount=0)
-		rankTableParts$Peduncle = reactiveValues(Name=NULL,
-									NameSimple=NULL,
-									ID=NULL,
-									Unique=NULL,
-									Distance=NULL,
-									editCount=0)
-	
 	rankTableUniqueOnlyParts <- new.env()
-	rankTableUniqueOnlyParts$Trailing <- reactiveValues(NameSimple=NULL,
-								Name = NULL,
-								ID=NULL,
-								Distance=NULL)
-	rankTableUniqueOnlyParts$Leading <- reactiveValues(NameSimple=NULL,
-								Name = NULL,
-								ID=NULL,
-								Distance=NULL)
-	rankTableUniqueOnlyParts$Peduncle <- reactiveValues(NameSimple=NULL,
-								Name = NULL,
-								ID=NULL,
-								Distance=NULL)
+	for(finParts in finPartCombos){
+		rankTableParts[[paste0(sort(finParts),collapse="")]] = reactiveValues(Name=NULL,
+									NameSimple=NULL,
+									ID=NULL,
+									Unique=NULL,
+									Distance=NULL,
+									editCount=0)
+		rankTableUniqueOnlyParts[[paste0(sort(finParts),collapse="")]] <- reactiveValues(NameSimple=NULL,
+									Name = NULL,
+									ID=NULL,
+									Distance=NULL)
+	}
+		#rankTableParts$Trailing = reactiveValues(Name=NULL,
+		#							NameSimple=NULL,
+		#							ID=NULL,
+		#							Unique=NULL,
+		#							Distance=NULL,
+		#							editCount=0)
+		#rankTableParts$Leading = reactiveValues(Name=NULL,
+		#							NameSimple=NULL,
+		#							ID=NULL,
+		#							Unique=NULL,
+		#							Distance=NULL,
+		#							editCount=0)
+		#rankTableParts$Peduncle = reactiveValues(Name=NULL,
+		#							NameSimple=NULL,
+		#							ID=NULL,
+		#							Unique=NULL,
+		#							Distance=NULL,
+		#							editCount=0)
+	
+	#rankTableUniqueOnlyParts <- new.env()
+	#rankTableUniqueOnlyParts$Trailing <- reactiveValues(NameSimple=NULL,
+	#							Name = NULL,
+	#							ID=NULL,
+	#							Distance=NULL)
+	#rankTableUniqueOnlyParts$Leading <- reactiveValues(NameSimple=NULL,
+	#							Name = NULL,
+	#							ID=NULL,
+	#							Distance=NULL)
+	#rankTableUniqueOnlyParts$Peduncle <- reactiveValues(NameSimple=NULL,
+	#							Name = NULL,
+	#							ID=NULL,
+	#							Distance=NULL)
 	
 
 	observeEvent(c(input$clearRef,input$clearQuery),{
@@ -355,17 +384,18 @@ function(input, output, session) {
 
 		#rownames <- paste(names(sessionQuery$hashData[[input$segmentTarget]]),":",sessionQuery$idData)
 		
-		for(finPart in c("Trailing","Leading","Peduncle")){
-			rankTableParts[[finPart]]$Name       <- rankTableParts[[finPart]]$Name      [rownames(rankTableParts[[finPart]]$Name      ) != rownames,]
-			rankTableParts[[finPart]]$NameSimple <- rankTableParts[[finPart]]$NameSimple[rownames(rankTableParts[[finPart]]$NameSimple) != rownames,]
-			rankTableParts[[finPart]]$ID         <- rankTableParts[[finPart]]$ID        [rownames(rankTableParts[[finPart]]$ID        ) != rownames,]
-			rankTableParts[[finPart]]$Unique     <- rankTableParts[[finPart]]$Unique    [rownames(rankTableParts[[finPart]]$Unique    ) != rownames,]
-			rankTableParts[[finPart]]$Distance   <- rankTableParts[[finPart]]$Distance  [rownames(rankTableParts[[finPart]]$Distance  ) != rownames,]
+		#for(finPart in c("Trailing","Leading","Peduncle")){
+		for(finParts in finPartCombos){
+			rankTableParts[[paste0(sort(finParts),collapse="")]]$Name       <- rankTableParts[[paste0(sort(finParts),collapse="")]]$Name      [rownames(rankTableParts[[paste0(sort(finParts),collapse="")]]$Name      ) != rownames,]
+			rankTableParts[[paste0(sort(finParts),collapse="")]]$NameSimple <- rankTableParts[[paste0(sort(finParts),collapse="")]]$NameSimple[rownames(rankTableParts[[paste0(sort(finParts),collapse="")]]$NameSimple) != rownames,]
+			rankTableParts[[paste0(sort(finParts),collapse="")]]$ID         <- rankTableParts[[paste0(sort(finParts),collapse="")]]$ID        [rownames(rankTableParts[[paste0(sort(finParts),collapse="")]]$ID        ) != rownames,]
+			rankTableParts[[paste0(sort(finParts),collapse="")]]$Unique     <- rankTableParts[[paste0(sort(finParts),collapse="")]]$Unique    [rownames(rankTableParts[[paste0(sort(finParts),collapse="")]]$Unique    ) != rownames,]
+			rankTableParts[[paste0(sort(finParts),collapse="")]]$Distance   <- rankTableParts[[paste0(sort(finParts),collapse="")]]$Distance  [rownames(rankTableParts[[paste0(sort(finParts),collapse="")]]$Distance  ) != rownames,]
 
-			rankTableUniqueOnlyParts[[finPart]]$Name       <- rankTableUniqueOnlyParts[[finPart]]$Name      [rownames(rankTableUniqueOnlyParts[[finPart]]$Name      ) != rownames,]
-			rankTableUniqueOnlyParts[[finPart]]$NameSimple <- rankTableUniqueOnlyParts[[finPart]]$NameSimple[rownames(rankTableUniqueOnlyParts[[finPart]]$NameSimple) != rownames,]
-			rankTableUniqueOnlyParts[[finPart]]$ID         <- rankTableUniqueOnlyParts[[finPart]]$ID        [rownames(rankTableUniqueOnlyParts[[finPart]]$ID        ) != rownames,]
-			rankTableUniqueOnlyParts[[finPart]]$Distance   <- rankTableUniqueOnlyParts[[finPart]]$Distance  [rownames(rankTableUniqueOnlyParts[[finPart]]$Distance  ) != rownames,]
+			rankTableUniqueOnlyParts[[paste0(sort(finParts),collapse="")]]$Name       <- rankTableUniqueOnlyParts[[paste0(sort(finParts),collapse="")]]$Name      [rownames(rankTableUniqueOnlyParts[[paste0(sort(finParts),collapse="")]]$Name      ) != rownames,]
+			rankTableUniqueOnlyParts[[paste0(sort(finParts),collapse="")]]$NameSimple <- rankTableUniqueOnlyParts[[paste0(sort(finParts),collapse="")]]$NameSimple[rownames(rankTableUniqueOnlyParts[[paste0(sort(finParts),collapse="")]]$NameSimple) != rownames,]
+			rankTableUniqueOnlyParts[[paste0(sort(finParts),collapse="")]]$ID         <- rankTableUniqueOnlyParts[[paste0(sort(finParts),collapse="")]]$ID        [rownames(rankTableUniqueOnlyParts[[paste0(sort(finParts),collapse="")]]$ID        ) != rownames,]
+			rankTableUniqueOnlyParts[[paste0(sort(finParts),collapse="")]]$Distance   <- rankTableUniqueOnlyParts[[paste0(sort(finParts),collapse="")]]$Distance  [rownames(rankTableUniqueOnlyParts[[paste0(sort(finParts),collapse="")]]$Distance  ) != rownames,]
 		}
 		
 		#rankTable$Name <- rankTable$Name[rownames,]
@@ -373,7 +403,7 @@ function(input, output, session) {
 		#rankTable$ID <- rankTable$ID[rownames,]
 		#rankTable$Unique <- rankTable$Unique[rownames,]
 		
-		#updateDisplayTables(input$targetFeatures,rankTableParts,rankTable )
+		#updateDisplayTables(ifelse(length(input$targetFeatures)==0,finPartCombos[[1]][1],input$targetFeatures),rankTableParts,rankTable )
 		rankTable$editCount <- rankTable$editCount+1
 		
 		removeIndex <- which(displayActive$activeSelections==readyToRemove$selected)
@@ -538,28 +568,30 @@ function(input, output, session) {
 	#)
 
 	observeEvent(rankTable$editCount,{
-		for(finPart in c("Trailing","Leading","Peduncle")){
-		rankTableUniqueOnlyParts[[finPart]]$NameSimple <- topMatchPerClass(rankTableParts[[finPart]]$NameSimple, rankTableParts[[finPart]]$Unique)
-		rankTableUniqueOnlyParts[[finPart]]$Name <- topMatchPerClass(rankTableParts[[finPart]]$Name, rankTableParts[[finPart]]$Unique)
-		rankTableUniqueOnlyParts[[finPart]]$ID <- topMatchPerClass(rankTableParts[[finPart]]$ID, rankTableParts[[finPart]]$Unique)
+		#req(ifelse(length(input$targetFeatures)==0,finPartCombos[[1]][1],input$targetFeatures))
+		#for(finPart in c("Trailing","Leading","Peduncle")){
+		for(finParts in finPartCombos){
+		rankTableUniqueOnlyParts[[paste0(sort(finParts),collapse="")]]$NameSimple <- topMatchPerClass(rankTableParts[[paste0(sort(finParts),collapse="")]]$NameSimple, rankTableParts[[paste0(sort(finParts),collapse="")]]$Unique)
+		rankTableUniqueOnlyParts[[paste0(sort(finParts),collapse="")]]$Name <- topMatchPerClass(rankTableParts[[paste0(sort(finParts),collapse="")]]$Name, rankTableParts[[paste0(sort(finParts),collapse="")]]$Unique)
+		rankTableUniqueOnlyParts[[paste0(sort(finParts),collapse="")]]$ID <- topMatchPerClass(rankTableParts[[paste0(sort(finParts),collapse="")]]$ID, rankTableParts[[paste0(sort(finParts),collapse="")]]$Unique)
 
 		#rankTableUniqueOnlyParts[[finPart]]$NameSimple <- topMatchPerClass(rankTable$NameSimple, rankTable$Unique)
 		#rankTableUniqueOnlyParts[[finPart]]$Name <- topMatchPerClass(rankTable$Name, rankTable$Unique)
 		#rankTableUniqueOnlyParts[[finPart]]$ID <- topMatchPerClass(rankTable$ID, rankTable$Unique)
 
-		#tmpDistance <- as.list(rep(NA,length(input$targetFeatures)))
-		#names(tmpDistance) <- input$targetFeatures
-		#for(finPart in input$targetFeatures){
+		#tmpDistance <- as.list(rep(NA,length(ifelse(length(input$targetFeatures)==0,finPartCombos[[1]][1],input$targetFeatures))))
+		#names(tmpDistance) <- ifelse(length(input$targetFeatures)==0,finPartCombos[[1]][1],input$targetFeatures)
+		#for(finPart in ifelse(length(input$targetFeatures)==0,finPartCombos[[1]][1],input$targetFeatures)){
 		#	tmpDistance[[finPart]] <- DistanceParts[[finPart]]
 		#}
-		#rankTable$Distance <- Reduce('+', tmpDistance[input$targetFeatures])
+		#rankTable$Distance <- Reduce('+', tmpDistance[ifelse(length(input$targetFeatures)==0,finPartCombos[[1]][1],input$targetFeatures)])
 		#rankTableUniqueOnlyParts[[finPart]]$Distance <- topMatchPerClass(rankTable$Distance, rankTable$Unique)
-		rankTableUniqueOnlyParts[[finPart]]$Distance <- topMatchPerClass(rankTableParts[[finPart]]$Distance, rankTableParts[[finPart]]$Unique)
+		rankTableUniqueOnlyParts[[paste0(sort(finParts),collapse="")]]$Distance <- topMatchPerClass(rankTableParts[[paste0(sort(finParts),collapse="")]]$Distance, rankTableParts[[paste0(sort(finParts),collapse="")]]$Unique)
 
 		
 		}
-		#updateDisplayTables(finPartSelected=input$targetFeatures, rankTableUniqueOnlyParts, rankTableUniqueOnly)
-		#updateDisplayTables(finPartSelected=input$targetFeatures, rankTableParts, rankTable)
+		#updateDisplayTables(finPartSelected=ifelse(length(input$targetFeatures)==0,finPartCombos[[1]][1],input$targetFeatures), rankTableUniqueOnlyParts, rankTableUniqueOnly)
+		#updateDisplayTables(finPartSelected=ifelse(length(input$targetFeatures)==0,finPartCombos[[1]][1],input$targetFeatures), rankTableParts, rankTable)
 		# distance ensujres something is in
 		# maybe this can be done more efficiently..
 		if(!is.null(rankTable$ID) && !is.null(rankTableUniqueOnly$ID))
@@ -579,45 +611,48 @@ function(input, output, session) {
 			#rownames(rankTableUniqueOnly$NameSimple) <- paste(names(sessionQuery$idData),":",sessionQuery$idData)
 			#rownames(rankTableUniqueOnly$ID) <- paste(names(sessionQuery$idData),":",sessionQuery$idData)
 			#rownames(rankTableUniqueOnly$Distance) <- paste(names(sessionQuery$idData),":",sessionQuery$idData)
-			rownames <- list(Trailing=NULL,Leading=NULL,Peduncle=NULL)
-			for(finPart in c("Trailing","Leading","Peduncle")){
 
-				#queryNamesPrev <- names(queryTmp[["Trailing"]])
-				#queryNames <- names(sessionQuery$hashData[[finPart]])
-				#querySharedNames <- merge(x=cbind(queryNamesPrev,1), y=cbind(queryNames,1), by.x="queryNamesPrev", by.y="queryNames",  all.y=F, all.x=F)[,1]
-				#queryTmp[[finPart]] <- lapply(querySharedNames,function(i){append(queryTmp[["Trailing"]][[i]],
-				#													sessionQuery$hashData[[finPart]][[i]][1:8])})
-				#names(queryTmp[[finPart]]) <- querySharedNames
 
-				#referNamesPrev <- names(referTmp[["Trailing"]])
-				#referNames <- names(sessionReference$hashData[[finPart]])
-				#referSharedNames <- merge(x=cbind(referNamesPrev,1), y=cbind(referNames,1), by.x="referNamesPrev", by.y="referNames",  all.y=F, all.x=F)[,1]
-				#referTmp[[finPart]] <- lapply(referSharedNames,function(i){append(referTmp[["Trailing"]][[i]],
-				#													sessionReference$hashData[[finPart]][[i]][1:8])})
-				#names(referTmp[[finPart]]) <- referSharedNames
+			#rownames <- list(Trailing=NULL,Leading=NULL,Peduncle=NULL)
+			##for(finPart in c("Trailing","Leading","Peduncle")){
+			#for(finParts in finPartCombos){
 
-					#browser()
-				querySharedNames <- merge(x=cbind(queryNamesPrev=names(sessionQuery$hashData[["Trailing"]]),1),     y=cbind(queryNames=names(sessionQuery$hashData[[finPart]]),1),     by.x="queryNamesPrev", by.y="queryNames",  all.y=F, all.x=F)[,1]
-				#referSharedNames <- merge(x=cbind(referNamesPrev=names(sessionReference$hashData[["Trailing"]]),1), y=cbind(referNames=names(sessionReference$hashData[[finPart]]),1), by.x="referNamesPrev", by.y="referNames",  all.y=F, all.x=F)[,1]
+			#	#queryNamesPrev <- names(queryTmp[["Trailing"]])
+			#	#queryNames <- names(sessionQuery$hashData[[finPart]])
+			#	#querySharedNames <- merge(x=cbind(queryNamesPrev,1), y=cbind(queryNames,1), by.x="queryNamesPrev", by.y="queryNames",  all.y=F, all.x=F)[,1]
+			#	#queryTmp[[finPart]] <- lapply(querySharedNames,function(i){append(queryTmp[["Trailing"]][[i]],
+			#	#													sessionQuery$hashData[[finPart]][[i]][1:8])})
+			#	#names(queryTmp[[finPart]]) <- querySharedNames
 
-				tmpRowNames <- names(sessionQuery$idData[querySharedNames])
-				#tmpRowNames <- names(sessionQuery$idData[names(sessionQuery$hashData[[finPart]])])
-				rownames[[finPart]] <- paste(tmpRowNames,":",sessionQuery$idData[tmpRowNames])
-				#tmpRowNames <- names(sessionQuery$hashData[[finPart]])[!is.null(sessionQuery$hashData[[finPart]])]
-				#rownames <- paste(tmpRowNames,":",sessionQuery$idData[tmpRowNames])
+			#	#referNamesPrev <- names(referTmp[["Trailing"]])
+			#	#referNames <- names(sessionReference$hashData[[finPart]])
+			#	#referSharedNames <- merge(x=cbind(referNamesPrev,1), y=cbind(referNames,1), by.x="referNamesPrev", by.y="referNames",  all.y=F, all.x=F)[,1]
+			#	#referTmp[[finPart]] <- lapply(referSharedNames,function(i){append(referTmp[["Trailing"]][[i]],
+			#	#													sessionReference$hashData[[finPart]][[i]][1:8])})
+			#	#names(referTmp[[finPart]]) <- referSharedNames
 
-				rownames(rankTableUniqueOnlyParts[[finPart]]$NameSimple) <- rownames[[finPart]]
-				rownames(rankTableUniqueOnlyParts[[finPart]]$Name) <- rownames[[finPart]]
-				rownames(rankTableUniqueOnlyParts[[finPart]]$ID) <- rownames[[finPart]]
-				rownames(rankTableUniqueOnlyParts[[finPart]]$Distance) <- rownames[[finPart]]
+			#		#browser()
+			#	querySharedNames <- merge(x=cbind(queryNamesPrev=names(sessionQuery$hashData[["Trailing"]]),1),     y=cbind(queryNames=names(sessionQuery$hashData[[finPart]]),1),     by.x="queryNamesPrev", by.y="queryNames",  all.y=F, all.x=F)[,1]
+			#	#referSharedNames <- merge(x=cbind(referNamesPrev=names(sessionReference$hashData[["Trailing"]]),1), y=cbind(referNames=names(sessionReference$hashData[[finPart]]),1), by.x="referNamesPrev", by.y="referNames",  all.y=F, all.x=F)[,1]
 
-				rownames(rankTableParts[[finPart]]$NameSimple) <- rownames[[finPart]]
-				rownames(rankTableParts[[finPart]]$Name) <- rownames[[finPart]]
-				rownames(rankTableParts[[finPart]]$ID) <- rownames[[finPart]]
-				rownames(rankTableParts[[finPart]]$Distance) <- rownames[[finPart]]
-			}
-			updateDisplayTables(finPartSelected=input$targetFeatures, rankTableUniqueOnlyParts, rankTableUniqueOnly)
-			updateDisplayTables(finPartSelected=input$targetFeatures, rankTableParts, rankTable)
+			#	tmpRowNames <- names(sessionQuery$idData[querySharedNames])
+			#	#tmpRowNames <- names(sessionQuery$idData[names(sessionQuery$hashData[[finPart]])])
+			#	rownames[[paste0(sort(finParts),collapse="")]] <- paste(tmpRowNames,":",sessionQuery$idData[tmpRowNames])
+			#	#tmpRowNames <- names(sessionQuery$hashData[[finPart]])[!is.null(sessionQuery$hashData[[finPart]])]
+			#	#rownames <- paste(tmpRowNames,":",sessionQuery$idData[tmpRowNames])
+
+			#	rownames(rankTableUniqueOnlyParts[[paste0(sort(finParts),collapse="")]]$NameSimple) <- rownames[[paste0(sort(finParts),collapse="")]]
+			#	rownames(rankTableUniqueOnlyParts[[paste0(sort(finParts),collapse="")]]$Name) <- rownames[[paste0(sort(finParts),collapse="")]]
+			#	rownames(rankTableUniqueOnlyParts[[paste0(sort(finParts),collapse="")]]$ID) <- rownames[[paste0(sort(finParts),collapse="")]]
+			#	rownames(rankTableUniqueOnlyParts[[paste0(sort(finParts),collapse="")]]$Distance) <- rownames[[paste0(sort(finParts),collapse="")]]
+
+			#	rownames(rankTableParts[[paste0(sort(finParts),collapse="")]]$NameSimple) <- rownames[[paste0(sort(finParts),collapse="")]]
+			#	rownames(rankTableParts[[paste0(sort(finParts),collapse="")]]$Name) <- rownames[[paste0(sort(finParts),collapse="")]]
+			#	rownames(rankTableParts[[paste0(sort(finParts),collapse="")]]$ID) <- rownames[[paste0(sort(finParts),collapse="")]]
+			#	rownames(rankTableParts[[paste0(sort(finParts),collapse="")]]$Distance) <- rownames[[paste0(sort(finParts),collapse="")]]
+			#}
+			updateDisplayTables(finPartSelected=paste0(sort(ifelse(length(input$targetFeatures)==0,finPartCombos[[1]][1],list(input$targetFeatures))[[1]]),collapse=""), rankTableUniqueOnlyParts, rankTableUniqueOnly)
+			updateDisplayTables(finPartSelected=paste0(sort(ifelse(length(input$targetFeatures)==0,finPartCombos[[1]][1],list(input$targetFeatures))[[1]]),collapse=""), rankTableParts, rankTable)
 		}
 	})
 
@@ -632,8 +667,8 @@ function(input, output, session) {
 	})
 	observeEvent(input$confirmSegmentRemove,{
 		removeModal()
-		sessionQuery$traceData[[input$segmentTarget]][[imageNameTableQuery()]] <- c(0,0,4,0)
-		sessionQuery$hashData[[input$segmentTarget]][[imageNameTableQuery()]] <- NULL
+		sessionQuery$traceData[[paste0(sort(input$segmentTarget),collapse="")]][[imageNameTableQuery()]] <- c(0,0,4,0)
+		sessionQuery$hashData[[paste0(sort(input$segmentTarget),collapse="")]][[imageNameTableQuery()]] <- NULL
 		plotsPanel[["TableQuery"]]$focusedCoord <- lapply(sessionQuery$traceData,function(x){x[[imageNameTableQuery()]]})
 
 		rownamesTmp <-  sessionQuery$idData[which(names(sessionQuery$idData)==imageNameTableQuery())]
@@ -641,19 +676,19 @@ function(input, output, session) {
 		#sessionQuery$idData <- sessionQuery$idData[which(names(sessionQuery$idData)!=imageNameTableQuery())]
 		#sessionQuery$hashData[[input$segmentTarget]][imageNameTableQuery()] <- NULL
 		#sessionQuery$traceData[[input$segmentTarget]][imageNameTableQuery()] <- NULL
-		rankTableParts[[input$segmentTarget]]$Name       <- rankTableParts[[input$segmentTarget]]$Name      [rownames(rankTableParts[[input$segmentTarget]]$Name      ) != rownames,]
-		rankTableParts[[input$segmentTarget]]$NameSimple <- rankTableParts[[input$segmentTarget]]$NameSimple[rownames(rankTableParts[[input$segmentTarget]]$NameSimple) != rownames,]
-		rankTableParts[[input$segmentTarget]]$ID         <- rankTableParts[[input$segmentTarget]]$ID        [rownames(rankTableParts[[input$segmentTarget]]$ID        ) != rownames,]
-		rankTableParts[[input$segmentTarget]]$Unique     <- rankTableParts[[input$segmentTarget]]$Unique    [rownames(rankTableParts[[input$segmentTarget]]$Unique    ) != rownames,]
-		rankTableParts[[input$segmentTarget]]$Distance   <- rankTableParts[[input$segmentTarget]]$Distance  [rownames(rankTableParts[[input$segmentTarget]]$Distance  ) != rownames,]
+		rankTableParts[[paste0(sort(input$segmentTarget),collapse="")]]$Name       <- rankTableParts[[paste0(sort(input$segmentTarget),collapse="")]]$Name      [rownames(rankTableParts[[paste0(sort(input$segmentTarget),collapse="")]]$Name      ) != rownames,]
+		rankTableParts[[paste0(sort(input$segmentTarget),collapse="")]]$NameSimple <- rankTableParts[[paste0(sort(input$segmentTarget),collapse="")]]$NameSimple[rownames(rankTableParts[[paste0(sort(input$segmentTarget),collapse="")]]$NameSimple) != rownames,]
+		rankTableParts[[paste0(sort(input$segmentTarget),collapse="")]]$ID         <- rankTableParts[[paste0(sort(input$segmentTarget),collapse="")]]$ID        [rownames(rankTableParts[[paste0(sort(input$segmentTarget),collapse="")]]$ID        ) != rownames,]
+		rankTableParts[[paste0(sort(input$segmentTarget),collapse="")]]$Unique     <- rankTableParts[[paste0(sort(input$segmentTarget),collapse="")]]$Unique    [rownames(rankTableParts[[paste0(sort(input$segmentTarget),collapse="")]]$Unique    ) != rownames,]
+		rankTableParts[[paste0(sort(input$segmentTarget),collapse="")]]$Distance   <- rankTableParts[[paste0(sort(input$segmentTarget),collapse="")]]$Distance  [rownames(rankTableParts[[paste0(sort(input$segmentTarget),collapse="")]]$Distance  ) != rownames,]
 
-		rankTableUniqueOnlyParts[[input$segmentTarget]]$Name       <- rankTableUniqueOnlyParts[[input$segmentTarget]]$Name      [rownames(rankTableUniqueOnlyParts[[input$segmentTarget]]$Name      ) != rownames,]
-		rankTableUniqueOnlyParts[[input$segmentTarget]]$NameSimple <- rankTableUniqueOnlyParts[[input$segmentTarget]]$NameSimple[rownames(rankTableUniqueOnlyParts[[input$segmentTarget]]$NameSimple) != rownames,]
-		rankTableUniqueOnlyParts[[input$segmentTarget]]$ID         <- rankTableUniqueOnlyParts[[input$segmentTarget]]$ID        [rownames(rankTableUniqueOnlyParts[[input$segmentTarget]]$ID        ) != rownames,]
-		rankTableUniqueOnlyParts[[input$segmentTarget]]$Distance   <- rankTableUniqueOnlyParts[[input$segmentTarget]]$Distance  [rownames(rankTableUniqueOnlyParts[[input$segmentTarget]]$Distance  ) != rownames,]
+		rankTableUniqueOnlyParts[[paste0(sort(input$segmentTarget),collapse="")]]$Name       <- rankTableUniqueOnlyParts[[paste0(sort(input$segmentTarget),collapse="")]]$Name      [rownames(rankTableUniqueOnlyParts[[paste0(sort(input$segmentTarget),collapse="")]]$Name      ) != rownames,]
+		rankTableUniqueOnlyParts[[paste0(sort(input$segmentTarget),collapse="")]]$NameSimple <- rankTableUniqueOnlyParts[[paste0(sort(input$segmentTarget),collapse="")]]$NameSimple[rownames(rankTableUniqueOnlyParts[[paste0(sort(input$segmentTarget),collapse="")]]$NameSimple) != rownames,]
+		rankTableUniqueOnlyParts[[paste0(sort(input$segmentTarget),collapse="")]]$ID         <- rankTableUniqueOnlyParts[[paste0(sort(input$segmentTarget),collapse="")]]$ID        [rownames(rankTableUniqueOnlyParts[[paste0(sort(input$segmentTarget),collapse="")]]$ID        ) != rownames,]
+		rankTableUniqueOnlyParts[[paste0(sort(input$segmentTarget),collapse="")]]$Distance   <- rankTableUniqueOnlyParts[[paste0(sort(input$segmentTarget),collapse="")]]$Distance  [rownames(rankTableUniqueOnlyParts[[paste0(sort(input$segmentTarget),collapse="")]]$Distance  ) != rownames,]
 
 		activeRankTableCell$cell <- matrix(1,1,2)
-		#updateDisplayTables(finPartSelected=input$targetFeatures, rankTableParts, rankTable)
+		#updateDisplayTables(finPartSelected=ifelse(length(input$targetFeatures)==0,finPartCombos[[1]][1],input$targetFeatures), rankTableParts, rankTable)
 		rankTable$editCount <- rankTable$editCount+1
 	})
 	
@@ -800,7 +835,8 @@ function(input, output, session) {
 	# dont forget, we need to split the id from the image name
 	#imageNameTableQuery <- tryCatch(reactive(strsplit(rownames(rankTable$Name)[activeRankTableCell$cell][1]," : ")[[1]][1]), error = function(e) browser(), finally=print("finished"))
 	#imageNameTableQuery <- try({reactive(strsplit(rownames(rankTable$Name)[activeRankTableCell$cell][1]," : ")[[1]][1])})
-	imageNameTableQuery <- reactive(strsplit(rownames(rankTableParts[[input$targetFeatures]]$Name)[activeRankTableCell$cell][1]," : ")[[1]][1])
+	#imageNameTableQuery <- reactive({print(input$targetFeatures);strsplit(rownames(rankTableParts[[paste0(sort(ifelse(length(input$targetFeatures)==0,finPartCombos[[1]][1],input$targetFeatures)),collapse="")]]$Name)[activeRankTableCell$cell][1]," : ")[[1]][1]})
+	imageNameTableQuery <- reactive({strsplit(rownames(rankTableParts[[paste0(sort(ifelse(length(input$targetFeatures)==0,finPartCombos[[1]][1],list(input$targetFeatures))[[1]]),collapse="")]]$Name)[activeRankTableCell$cell][1]," : ")[[1]][1]})
 	
 	observeEvent(input[[paste0("changeID","TableQuery")]],{
 		plotsPanel[["TableQuery"]]$mode <- "setID"
@@ -979,7 +1015,7 @@ function(input, output, session) {
 										#sessionQuery$hashData[[finPart]] <- sessionQuery$hashData[[finPart]][names(sessionQuery$idData)]
 										plotFinTrace(load.image(rankTableUniqueOnly$Name[activeRankTableCell$cell]),
 																do.call(rbind,lapply(sessionReference$traceData,function(x){decodePath(unlist(x[[rankTableUniqueOnly$Name[activeRankTableCell$cell] ]]))})),
-																#decodePath(unlist(sessionReference$traceData[[input$targetFeatures]][rankTableUniqueOnly$Name[activeRankTableCell$cell]])),
+																#decodePath(unlist(sessionReference$traceData[[ifelse(length(input$targetFeatures)==0,finPartCombos[[1]][1],input$targetFeatures)]][rankTableUniqueOnly$Name[activeRankTableCell$cell]])),
 																lapply(sessionReference$traceData,function(x){x[[ rankTableUniqueOnly$Name[activeRankTableCell$cell] ]]}),
 																mode="default",
 																#input$segmentTarget,
@@ -1001,7 +1037,7 @@ function(input, output, session) {
 																#sessionReference$traceData[rankTable$Name[activeRankTableCell$cell]],
 																do.call(rbind,lapply(sessionReference$traceData,function(x){decodePath(unlist(x[[rankTable$Name[activeRankTableCell$cell] ]]))})),
 																#sessionReference$traceData[rankTable$Name[activeRankTableCell$cell]][[input$segmentTarget]],
-																#decodePath(unlist(sessionReference$traceData[[input$targetFeatures]][rankTable$Name[activeRankTableCell$cell]])),
+																#decodePath(unlist(sessionReference$traceData[[ifelse(length(input$targetFeatures)==0,finPartCombos[[1]][1],input$targetFeatures)]][rankTable$Name[activeRankTableCell$cell]])),
 																lapply(sessionReference$traceData,function(x){x[[ rankTable$Name[activeRankTableCell$cell] ]]}),
 																mode="default",
 																#input$segmentTarget,
@@ -1060,8 +1096,10 @@ function(input, output, session) {
 	
 	
 	observeEvent(c(rankTable$editCount, input$targetFeatures),{
-						updateDisplayTables(finPartSelected=input$targetFeatures, rankTableUniqueOnlyParts, rankTableUniqueOnly)
-						updateDisplayTables(finPartSelected=input$targetFeatures, rankTableParts, rankTable)
+						#print(paste(paste0("things go obs: ",input$targetFeatures),paste0(sort(ifelse(length(input$targetFeatures)==0,finPartCombos[[1]][1],input$targetFeatures)),collapse="")))
+						#paste(paste0("things go obs: ",input$targetFeatures,collapse=" "))
+						updateDisplayTables(finPartSelected=paste0(sort(ifelse(length(input$targetFeatures)==0,finPartCombos[[1]][1],list(input$targetFeatures))[[1]]),collapse=""), rankTableUniqueOnlyParts, rankTableUniqueOnly)
+						updateDisplayTables(finPartSelected=paste0(sort(ifelse(length(input$targetFeatures)==0,finPartCombos[[1]][1],list(input$targetFeatures))[[1]]),collapse=""), rankTableParts, rankTable)
 				 }
 	)
 	
@@ -1202,8 +1240,8 @@ function(input, output, session) {
 		#sessionQuery$traceData[[input$segmentTarget]][[imageNameTableQuery()]] <- c(0,0,4,0)
 		#sessionQuery$hashData[[input$segmentTarget]][[imageNameTableQuery()]] <- NULL
 		#plotsPanel[["TableQuery"]]$focusedCoord <- lapply(sessionQuery$traceData,function(x){x[[imageNameTableQuery()]]})
-		sessionQuery$traceData[[input$segmentTarget]][[imageName]] <- c(0,0,4,0)
-		sessionQuery$hashData[[input$segmentTarget]][[imageName]] <- NULL
+		sessionQuery$traceData[[paste0(sort(input$segmentTarget),collapse="")]][[imageName]] <- c(0,0,4,0)
+		sessionQuery$hashData[[paste0(sort(input$segmentTarget),collapse="")]][[imageName]] <- NULL
 		plotsPanel[[panelID]]$focusedCoord <- lapply(sessionQuery$traceData,function(x){x[[imageName]]})
 
 		if(!is.null(rankTable$ID) && !is.null(rankTableUniqueOnly$ID))
@@ -1213,19 +1251,19 @@ function(input, output, session) {
 			#sessionQuery$idData <- sessionQuery$idData[which(names(sessionQuery$idData)!=imageNameTableQuery())]
 			#sessionQuery$hashData[[input$segmentTarget]][imageNameTableQuery()] <- NULL
 			#sessionQuery$traceData[[input$segmentTarget]][imageNameTableQuery()] <- NULL
-			rankTableParts[[input$segmentTarget]]$Name       <- rankTableParts[[input$segmentTarget]]$Name      [rownames(rankTableParts[[input$segmentTarget]]$Name      ) != rownames,]
-			rankTableParts[[input$segmentTarget]]$NameSimple <- rankTableParts[[input$segmentTarget]]$NameSimple[rownames(rankTableParts[[input$segmentTarget]]$NameSimple) != rownames,]
-			rankTableParts[[input$segmentTarget]]$ID         <- rankTableParts[[input$segmentTarget]]$ID        [rownames(rankTableParts[[input$segmentTarget]]$ID        ) != rownames,]
-			rankTableParts[[input$segmentTarget]]$Unique     <- rankTableParts[[input$segmentTarget]]$Unique    [rownames(rankTableParts[[input$segmentTarget]]$Unique    ) != rownames,]
-			rankTableParts[[input$segmentTarget]]$Distance   <- rankTableParts[[input$segmentTarget]]$Distance  [rownames(rankTableParts[[input$segmentTarget]]$Distance  ) != rownames,]
+			rankTableParts[[paste0(sort(input$segmentTarget),collapse="")]]$Name       <- rankTableParts[[paste0(sort(input$segmentTarget),collapse="")]]$Name      [rownames(rankTableParts[[paste0(sort(input$segmentTarget),collapse="")]]$Name      ) != rownames,]
+			rankTableParts[[paste0(sort(input$segmentTarget),collapse="")]]$NameSimple <- rankTableParts[[paste0(sort(input$segmentTarget),collapse="")]]$NameSimple[rownames(rankTableParts[[paste0(sort(input$segmentTarget),collapse="")]]$NameSimple) != rownames,]
+			rankTableParts[[paste0(sort(input$segmentTarget),collapse="")]]$ID         <- rankTableParts[[paste0(sort(input$segmentTarget),collapse="")]]$ID        [rownames(rankTableParts[[paste0(sort(input$segmentTarget),collapse="")]]$ID        ) != rownames,]
+			rankTableParts[[paste0(sort(input$segmentTarget),collapse="")]]$Unique     <- rankTableParts[[paste0(sort(input$segmentTarget),collapse="")]]$Unique    [rownames(rankTableParts[[paste0(sort(input$segmentTarget),collapse="")]]$Unique    ) != rownames,]
+			rankTableParts[[paste0(sort(input$segmentTarget),collapse="")]]$Distance   <- rankTableParts[[paste0(sort(input$segmentTarget),collapse="")]]$Distance  [rownames(rankTableParts[[paste0(sort(input$segmentTarget),collapse="")]]$Distance  ) != rownames,]
 
-			rankTableUniqueOnlyParts[[input$segmentTarget]]$Name       <- rankTableUniqueOnlyParts[[input$segmentTarget]]$Name      [rownames(rankTableUniqueOnlyParts[[input$segmentTarget]]$Name      ) != rownames,]
-			rankTableUniqueOnlyParts[[input$segmentTarget]]$NameSimple <- rankTableUniqueOnlyParts[[input$segmentTarget]]$NameSimple[rownames(rankTableUniqueOnlyParts[[input$segmentTarget]]$NameSimple) != rownames,]
-			rankTableUniqueOnlyParts[[input$segmentTarget]]$ID         <- rankTableUniqueOnlyParts[[input$segmentTarget]]$ID        [rownames(rankTableUniqueOnlyParts[[input$segmentTarget]]$ID        ) != rownames,]
-			rankTableUniqueOnlyParts[[input$segmentTarget]]$Distance   <- rankTableUniqueOnlyParts[[input$segmentTarget]]$Distance  [rownames(rankTableUniqueOnlyParts[[input$segmentTarget]]$Distance  ) != rownames,]
+			rankTableUniqueOnlyParts[[paste0(sort(input$segmentTarget),collapse="")]]$Name       <- rankTableUniqueOnlyParts[[paste0(sort(input$segmentTarget),collapse="")]]$Name      [rownames(rankTableUniqueOnlyParts[[paste0(sort(input$segmentTarget),collapse="")]]$Name      ) != rownames,]
+			rankTableUniqueOnlyParts[[paste0(sort(input$segmentTarget),collapse="")]]$NameSimple <- rankTableUniqueOnlyParts[[paste0(sort(input$segmentTarget),collapse="")]]$NameSimple[rownames(rankTableUniqueOnlyParts[[paste0(sort(input$segmentTarget),collapse="")]]$NameSimple) != rownames,]
+			rankTableUniqueOnlyParts[[paste0(sort(input$segmentTarget),collapse="")]]$ID         <- rankTableUniqueOnlyParts[[paste0(sort(input$segmentTarget),collapse="")]]$ID        [rownames(rankTableUniqueOnlyParts[[paste0(sort(input$segmentTarget),collapse="")]]$ID        ) != rownames,]
+			rankTableUniqueOnlyParts[[paste0(sort(input$segmentTarget),collapse="")]]$Distance   <- rankTableUniqueOnlyParts[[paste0(sort(input$segmentTarget),collapse="")]]$Distance  [rownames(rankTableUniqueOnlyParts[[paste0(sort(input$segmentTarget),collapse="")]]$Distance  ) != rownames,]
 
 			activeRankTableCell$cell <- matrix(1,1,2)
-			#updateDisplayTables(finPartSelected=input$targetFeatures, rankTableParts, rankTable)
+			#updateDisplayTables(finPartSelected=ifelse(length(input$targetFeatures)==0,finPartCombos[[1]][1],input$targetFeatures), rankTableParts, rankTable)
 			rankTable$editCount <- rankTable$editCount+1
 		}
 		})
