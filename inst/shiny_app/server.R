@@ -570,7 +570,8 @@ function(input, output, session) {
 	observeEvent(rankTable$editCount,{
 		#req(ifelse(length(input$targetFeatures)==0,finPartCombos[[1]][1],input$targetFeatures))
 		#for(finPart in c("Trailing","Leading","Peduncle")){
-		for(finParts in finPartCombos){
+		#for(finParts in finPartCombos){
+		for(finParts in sapply(finPartCombos,function(x){any(input$segmentTarget==x)})){
 		rankTableUniqueOnlyParts[[paste0(sort(finParts),collapse="")]]$NameSimple <- topMatchPerClass(rankTableParts[[paste0(sort(finParts),collapse="")]]$NameSimple, rankTableParts[[paste0(sort(finParts),collapse="")]]$Unique)
 		rankTableUniqueOnlyParts[[paste0(sort(finParts),collapse="")]]$Name <- topMatchPerClass(rankTableParts[[paste0(sort(finParts),collapse="")]]$Name, rankTableParts[[paste0(sort(finParts),collapse="")]]$Unique)
 		rankTableUniqueOnlyParts[[paste0(sort(finParts),collapse="")]]$ID <- topMatchPerClass(rankTableParts[[paste0(sort(finParts),collapse="")]]$ID, rankTableParts[[paste0(sort(finParts),collapse="")]]$Unique)

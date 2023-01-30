@@ -668,7 +668,6 @@ traceFromImage <- function(fin,
 			silhouette = (gausskld(colTest$params)+gausskld(colTest$params[c(2,1),])) < (gausskld(lumTest$params)+gausskld(lumTest$params[c(2,1),]))
 	}
 	print(paste("silhouette:",silhouette))
-	
 
 	################################################################################
 	# generate the canny edge image
