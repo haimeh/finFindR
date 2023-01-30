@@ -723,7 +723,7 @@ function(input, output, session) {
 
 	observeEvent(input[[paste0("saveRetrace","TableQuery")]],ignoreInit=T,{
 		print("saveretrace tablequery")
-		
+		print(length(readyToRetrace))
 		saveRetrace(readyToRetrace=readyToRetrace,
 					targetEnvir=sessionQuery,
 					mxnetModel=mxnetModel)
@@ -1293,6 +1293,8 @@ function(input, output, session) {
 		
 		# --- save trace edit
 		observeEvent(input[[paste0("saveRetrace",panelID)]],ignoreInit=T,{
+			print(panelID)
+			print(length(readyToRetrace))
 			saveRetrace(readyToRetrac=readyToRetrace,
 									targetEnvir=sessionQuery,
 									mxnetModel=mxnetModel)
