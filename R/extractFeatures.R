@@ -373,25 +373,35 @@ traceFromCannyEdges <- function(pathMap,
 traceFromImage <- function(fin,
 							startStopCoords = NULL,
 							pathNet = NULL,
-							edgeChan = 4,
+							edgeChan = 3,
 							justStartCoord = NULL,
 							userNetOut = NULL)
 {
 	if(is.null(userNetOut)){require("mxnet")}
+
 			# channel 1 : all
 			# channel 2 : peduncle
 			# channel 3 : trans
 			# channel 4 : trailing
 			# channel 5 : tip
 			# channel 6 : leading
+
+
+			# channel 1 : all
+			# channel 2 : peduncle
+			# channel 3 : trailing
+			# channel 4 : leading
+			# channel 5 : all2
+			# channel 6 : tip
+			# channel 7 : transi
 			#selectedChan <- c("Peduncle"=2,"Trailing"=4,"Leading"=6)
 	if(edgeChan==2){
-		tipChan <- 3
+		tipChan <- 6
 	}else{
-		tipChan <- 5
+		tipChan <- 7
 	}
+	if(!(edgeChan %in% c(2,3,4))){stop("Not a valid channel")}
 
-	if(!(edgeChan %in% c(2,4,6))){stop("Not a valid channel")}
 	if(is.null(pathNet) & is.null(userNetOut))(pathNet <- mxnet::mx.model.load(file.path(system.file("extdata", package="finFindR"),'SWA_cont2_traceLong7_bn_6,10,5_RGB_fin'), 000))
 	if(!is.cimg(fin)){stop("fin must be Jpeg of type cimg")}
 	if(!("MXFeedForwardModel" %in% class(pathNet)) & is.null(userNetOut)){stop("network must be of class MXFeedForwardModel")}
@@ -412,29 +422,45 @@ traceFromImage <- function(fin,
 	netIn <- shrinkDomDim(fin,200)
 	newDim <- dim(netIn)
 	oriToNetResizeFactors <- c(dim(fin)[1]/newDim[1],dim(fin)[2]/newDim[2])
-	netIn <- as.array(netIn)
  
 
 	dim(netIn) <- c(newDim[1],newDim[2],3,1)
 
+
+
+	dim(netIn) <- c(newDim[1],newDim[2],3,1)
+
 	if(is.null(userNetOut)){
-		finImIter <- mx.io.arrayiter(netIn,
-		#finImIter <- mx.io.arrayiter(floor(netIn*255),
-										label=0,
-										batch.size=1)
-		#netOutRaw <- mxnet:::predict.MXFeedForwardModel(X=finImIter,model=pathNet,ctx=mxnet::mx.cpu(),array.layout = "colmajor")
-		netOutRaw <- predict.MXFeedForwardModel_tst(X=finImIter,model=pathNet,ctx=mxnet::mx.cpu(),array.layout = "colmajor")
+
+  bufferFactor <- 20
+  netInBuffed <- resize(as.cimg(netIn),
+						size_x=dim(netIn)[1]+bufferFactor, size_y=dim(netIn)[2]+bufferFactor, 
+						centering_x=.5,centering_y=.5, 
+						interpolation_type=0,boundary_conditions=1)
+  netInBuffed <- as.array(netInBuffed)
+ 
+	netIn <- as.array(netIn)
+
+  dim(netInBuffed) <- c(newDim[1]+bufferFactor,newDim[2]+bufferFactor,3,1)
+  finImIter <- mx.io.arrayiter(netInBuffed,
+                  label=0,
+                  batch.size=1)
+  netOutRaw <- predict.MXFeedForwardModel_tst(X=finImIter,model=pathNet,ctx=mxnet::mx.cpu(),array.layout = "colmajor")
+  netOutRaw <- resize(as.cimg(netOutRaw),
+					  size_x=dim(netIn)[1], size_y=dim(netIn)[2], 
+					  centering_x=.5, centering_y=.5, 
+					  interpolation_type=0,boundary_conditions=1)
 
 		# sometimes the images are poorly cropped and so we check if we want to process a sub image
 		## %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 		#finRange <- apply(get.locations(dilate_square(as.cimg(netOutRaw[,,1,]) < .75,5), as.logical)[,1:2],2,range)
 		finAllRange <- apply(get.locations(dilate_square(as.cimg(netOutRaw[,,1,]) < .75,5), as.logical)[,1:2],2,range)
 		finAllSpan <- finAllRange[2,]-finAllRange[1,]
-		finRange <- apply(get.locations(dilate_square(as.cimg(netOutRaw[,,c(edgeChan,tipChan),]) > .25,5), as.logical)[,1:2],2,range)
+		finRange <- apply(get.locations(dilate_square(as.cimg(netOutRaw[,,edgeChan,]) > .25,5), as.logical)[,1:2],2,range)
 		finSpan <- finRange[2,]-finRange[1,]
-		# if we dont cover at least 60% of the image..
-		if(any(finSpan > .1*finAllSpan) & (any((dim(netOutRaw)[1:2] - finSpan) > (dim(netOutRaw)[1:2]*.4)))){
-		#if((any((dim(netOutRaw)[1:2] - finSpan) > (dim(netOutRaw)[1:2]*.4)))){
+		if(any(finSpan > .1*finAllSpan) & (any((dim(netOutRaw)[1:2] - finSpan) > (dim(netOutRaw)[1:2]*.4))))
+		#if((any((dim(netOutRaw)[1:2] - finSpan) > (dim(netOutRaw)[1:2]*.4))))
+		{
 			print("zoom")
 			#netOutRawOri <- netOutRaw
 			finInEnlargeRatio<- 200/max(finSpan)
@@ -449,34 +475,40 @@ traceFromImage <- function(fin,
 			finRangeEnlarged[,"x"] <- pClip(finRangeEnlarged[,"x"],1,dim(netIn)[1])
 			finRangeEnlarged[,"y"] <- pClip(finRangeEnlarged[,"y"],1,dim(netIn)[2])
 
-			netInReduced <- netIn[finRangeEnlarged[1,"x"]:(finRangeEnlarged[2,"x"]), 
-								finRangeEnlarged[1,"y"]:(finRangeEnlarged[2,"y"]),,,drop=F]
 
-			# we want to increase the size of the netIn so that the sub image is the target of shrinkDomDim
-			# then crop it and run it, and then buffer the netOut to be like the netIn
-			finImIter <- mx.io.arrayiter(as.array(netInReduced),
-			#finImIter <- mx.io.arrayiter(aperm(as.array(netInReduced),c(2,1,3,4)),
-											label=0,
-											batch.size=1)
-			#netOutRawReduced <- mxnet:::predict.MXFeedForwardModel(X=finImIter,model=pathNet,ctx=mxnet::mx.cpu(),array.layout = "colmajor")
-			netOutRawReduced <- predict.MXFeedForwardModel_tst(X=finImIter,model=pathNet,ctx=mxnet::mx.cpu(),array.layout = "colmajor")
-			netOutRaw <- as.array(resize(netOutRaw, interpolation_type=3, size_x=newDim[1], size_y=newDim[2]))
-			#netOutRaw <- array(c(rep(1,prod(dim(netIn)[1:2])), rep(0,prod(dim(netIn)[1:2])*(dim(netOutRawReduced)[3]-1) )),
-			#										c(dim(netIn)[1:2],dim(netOutRawReduced)[3],1))
-			netOutRaw[finRangeEnlarged[1,"x"]:finRangeEnlarged[2,"x"], 
-						finRangeEnlarged[1,"y"]:finRangeEnlarged[2,"y"],,] <- netOutRawReduced
+    netInReduced <- netIn[finRangeEnlarged[1,"x"]:finRangeEnlarged[2,"x"], 
+                          finRangeEnlarged[1,"y"]:finRangeEnlarged[2,"y"],,,drop=F]
+	netInReducedBuffed <- resize(as.cimg(netInReduced),
+								 size_x=dim(netInReduced)[1]+bufferFactor, size_y=dim(netInReduced)[2]+bufferFactor, 
+								 centering_x=.5, centering_y=.5, 
+								 interpolation_type=0,boundary_conditions=1)
+
+    # we want to increase the size of the netIn so that the sub image is the target of shrinkDomDim
+    # then crop it and run it, and then buffer the netOut to be like the netIn
+    finImIter <- mx.io.arrayiter(netInReducedBuffed,
+                    label=0,
+                    batch.size=1)
+    netOutRawReduced <- predict.MXFeedForwardModel_tst(X=finImIter,model=pathNet,ctx=mxnet::mx.cpu(),array.layout = "colmajor")
+    netOutRawReduced <- resize(as.cimg(netOutRawReduced),size_x=dim(netInReduced)[1], size_y=dim(netInReduced)[2], centering_y=.5, interpolation_type=0,boundary_conditions=1)
+    #netOutRaw <- as.array(resize(netOutRaw, interpolation_type=3, size_x=newDim[1], size_y=newDim[2]))
+    netOutRaw <- resize(netOutRaw, interpolation_type=3, size_x=newDim[1], size_y=newDim[2])
+    #netOutRaw <- array(c(rep(1,prod(dim(netIn)[1:2])), rep(0,prod(dim(netIn)[1:2])*(dim(netOutRawReduced)[3]-1) )),
+    #                   c(dim(netIn)[1:2],dim(netOutRawReduced)[3],1))
+    netOutRaw[finRangeEnlarged[1,"x"]:finRangeEnlarged[2,"x"], 
+              finRangeEnlarged[1,"y"]:finRangeEnlarged[2,"y"],,] <- netOutRawReduced
+
+
 		}
-	}else{
-		netOutRaw <- userNetOut
+	}else{ netOutRaw <- userNetOut
 	}
 
-	estHighlight <- threshold(netIn,.97)
-	cropRot <- dilate_square((netIn==0.0),5) | dilate_square((netIn==1.0),3)
-	if(any(cropRot)){
-		print("fill glare")
-		netIn[as.logical(cropRot)]<-0
-		netIn <- fillGlare(netIn, get.locations(cropRot,as.logical)-1)
-	}
+	#estHighlight <- threshold(netIn,.97)
+	#cropRot <- dilate_square((netIn==0.0),5) | dilate_square((netIn==1.0),3)
+	#if(any(cropRot)){
+	#	print("fill glare")
+	#	netIn[as.logical(cropRot)]<-0
+	#	netIn <- fillGlare(netIn, get.locations(cropRot,as.logical)-1)
+	#}
 	netIn <- as.array(netIn)
 
 
@@ -489,6 +521,14 @@ traceFromImage <- function(fin,
 		# channel 5 : tip
 		# channel 6 : leading
 		
+			# channel 1 : all
+			# channel 2 : peduncle
+			# channel 3 : trailing
+			# channel 4 : leading
+			# channel 5 : all2
+			# channel 6 : transi
+			# channel 7 : tip
+
 		#if(trailing){
 		#  edgeChan <- 2
 		#  notEdgeChan <- 3
@@ -502,7 +542,8 @@ traceFromImage <- function(fin,
 		#	tipChan <- 4
 		#}
 		#notEdgeChan <- c("1"=NA, "2"=3, "3"=5, "4"=NA, "5"=3)[[edgeChan]]
-		notEdgeChan <- c("1"=NA, "2"=4, "3"=NA, "4"=6, "5"=NA, "6"=4)[[edgeChan]]
+		#notEdgeChan <- c("1"=NA, "2"=4, "3"=NA, "4"=6, "5"=NA, "6"=4)[[edgeChan]]
+		notEdgeChan <- c("1"=NA, "2"=3, "3"=4, "4"=3, "5"=NA, "6"=NA, "7"=NA)[[edgeChan]]
 
 		edgeDilateFactor <- max(ceiling(sum(netOutRaw[,,edgeChan,])/20),5)
 		
@@ -514,7 +555,7 @@ traceFromImage <- function(fin,
 		
 		netFiltered <- netOutRaw
 		netFiltered[,,1,] <- 1-netFiltered[,,1,]
-		netFilteredThreshPre <- netFiltered > .35
+		netFilteredThreshPre <- array(netFiltered > .35, dim(netFiltered))
 		netFilteredThreshPre[,,edgeChan,] <- netFilteredThreshPre[,,edgeChan,] | netFilteredThreshPre[,,tipChan,]
 		diffNotChan <- apply(get.locations(dilate_square(as.cimg(netFilteredThreshPre[,,notEdgeChan,]),edgeDilateFactor),as.logical)[,1:2],2,mean)
 		diffChan <- apply(get.locations(dilate_square(as.cimg(netFilteredThreshPre[,,edgeChan,]),edgeDilateFactor),as.logical)[,1:2],2,mean)
@@ -585,6 +626,13 @@ traceFromImage <- function(fin,
 	}
 	
 
+	if(!any(netFiltered[,,edgeChan]>.35))
+	{
+		print(paste0("Edge channel ",edgeChan," empty"))
+		return(list(annulus=NULL,coordinates=NULL,dim=NULL,netOut=NULL))
+	}
+
+
 	###########################################################################################
 	# resize trim color
 	#########################################################################################
@@ -620,24 +668,24 @@ traceFromImage <- function(fin,
 	dilateFactor <- dilateFactor+ifelse(as.logical(dilateFactor%%2),0,1)
 	
 	
-	glareBound <- (sum(!estHighlight)/prod(dim(estHighlight)))
-	if(glareBound > .95)# && glareBound < 1)
-	{
-		print("removing glare")
-		highlightBlob <- threshold(fin,.97)#90
-		glare <- threshold(fin,.99)
-		
-		highlightBlob <- label(highlightBlob)
-		keepers <- unique(highlightBlob*glare)
-		highlightBlob[!(highlightBlob %in% keepers)] <- 0
-		highlightBlob <- (highlightBlob==0)
-		highlightBlob <- erode_square(highlightBlob,3)
-		
-		fin <- fin*highlightBlob
-		#fin <- fillGlare(fin, get.locations(highlightBlob,function(x){x==FALSE})-1)
-		fin <- fillGlare(fin, get.locations(highlightBlob,function(x){!as.logical(x)})-1)
-		print("glare clear")
-	}
+	#glareBound <- (sum(!estHighlight)/prod(dim(estHighlight)))
+	#if(glareBound > .95)# && glareBound < 1)
+	#{
+	#	print("removing glare")
+	#	highlightBlob <- threshold(fin,.97)#90
+	#	glare <- threshold(fin,.99)
+	#	
+	#	highlightBlob <- label(highlightBlob)
+	#	keepers <- unique(highlightBlob*glare)
+	#	highlightBlob[!(highlightBlob %in% keepers)] <- 0
+	#	highlightBlob <- (highlightBlob==0)
+	#	highlightBlob <- erode_square(highlightBlob,3)
+	#	
+	#	fin <- fin*highlightBlob
+	#	#fin <- fillGlare(fin, get.locations(highlightBlob,function(x){x==FALSE})-1)
+	#	fin <- fillGlare(fin, get.locations(highlightBlob,function(x){!as.logical(x)})-1)
+	#	print("glare clear")
+	#}
 	
 	print("forground-background complete")
 
@@ -779,10 +827,9 @@ traceFromImage <- function(fin,
 		otherEdgeLimitSmall <- colSums(t(t(otherEdgeLoc)*otherEdgeVal))/sum(otherEdgeVal) - (c(xSpan[1],ySpan[1])-1)
 
 
-		startRegionWithoutDilation <- as.cimg(netFiltered[,,tipChan] > .35)
+		startRegionWithoutDilation <- as.cimg(netFiltered[,,tipChan] > .2)
 		startRegion <- dilate_square(startRegionWithoutDilation, 5)
 		candidateStarts <- get.locations(startRegion,as.logical)[c(1,2)]
-
 
 
 			# channel 1 : all
@@ -791,13 +838,24 @@ traceFromImage <- function(fin,
 			# channel 4 : trailing
 			# channel 5 : tip
 			# channel 6 : leading
+
+
+			# channel 1 : all
+			# channel 2 : peduncle
+			# channel 3 : trailing
+			# channel 4 : leading
+			# channel 5 : all2
+			# channel 6 : transi
+			# channel 7 : tip
 		print("finding start stop")
 
 		## START #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 		# --- find start point
 		## %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 		if(is.null(justStartCoord)){
-			if(any(startRegion) & (edgeChan==3 | edgeChan==5) ){
+			#if(any(startRegion) & (edgeChan==3 | edgeChan==5) ){
+			#if(any(startRegion) & (edgeChan==3 | edgeChan==4) ){
+			if(any(startRegion) ){
 				startRegion[1,,,] <- 0
 				startRegion[,1,,] <- 0
 				startRegion[width(netFiltered),,,] <- 0
@@ -823,6 +881,13 @@ traceFromImage <- function(fin,
 				startPointSmall <- (startPointByVal+startPointByDist)/2
 
 			}else{
+			# channel 1 : all
+			# channel 2 : peduncle
+			# channel 3 : trailing
+			# channel 4 : leading
+			# channel 5 : all2
+			# channel 6 : transi
+			# channel 7 : tip
 				print("Nerual Net failed to find start, assuming at the top of edges")
 				trail <- get.locations(as.cimg(netFiltered[,,edgeChan]>.35),as.logical)
 				lead <- get.locations(as.cimg(netFiltered[,,notEdgeChan]>.35),as.logical)
@@ -840,7 +905,6 @@ traceFromImage <- function(fin,
 			startPoint <- as.integer(round(((startPointSmall * ((dim(fin)[1:2]/dim(netFiltered)[1:2])) )))) #(dim(fin)/dim(finCropped))[1:2]))#* cumuResize))
 		}else{
 			print("using just user provided start")
-		#browser()
 			#justStartPointLarge <- justStartCoord
 			#justStartCoord <- round(justStartCoord/oriToNetResizeFactors)
 			#justStartCoord[1] <- pClip(justStartCoord[1],1,dim(netIn)[1])
@@ -874,7 +938,8 @@ traceFromImage <- function(fin,
 	 
 		if(anyNA(startPoint) || anyNA(endPoint) || any(c(startPoint,endPoint)==0))
 		{
-			print(paste0("startPoint FAILURE; from: ",startPoint[1],",",startPoint[2],"		to: ",endPoint[1],",",endPoint[2] ))
+			print(paste0("startPoint FAILURE; from: ",startPoint[1],",",startPoint[2]," to: ",endPoint[1],",",endPoint[2] ))
+			#browser()
 			return(list(annulus=NULL,coordinates=NULL,dim=NULL,netOut=NULL))
 		}
 		print(cbind(startPoint,endPoint))

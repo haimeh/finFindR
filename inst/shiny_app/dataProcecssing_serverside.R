@@ -154,7 +154,15 @@ processImageData <- function(directory,
 			# channel 4 : trailing
 			# channel 5 : tip
 			# channel 6 : leading
-			selectedChan <- c("Peduncle"=2,"Trailing"=4,"Leading"=6)
+
+			# channel 1 : all
+			# channel 2 : peduncle
+			# channel 3 : trailing
+			# channel 4 : leading
+			# channel 5 : all2
+			# channel 6 : tip
+			# channel 7 : transi
+			selectedChan <- c("Peduncle"=2,"Trailing"=3,"Leading"=4)
 			result <-
 			traceResults <- list()
 			justStartCoord <- NULL
@@ -295,7 +303,7 @@ calculateRankTable <- function(rankTable,
 	counterEnvir <- new.env()
 	counterEnvir$progressTicker <- 0
 	counterEnvir$reactiveDomain <- getDefaultReactiveDomain()
-	counterEnvir$length <- length(sessionQuery$hashData)
+	counterEnvir$length <- length(sessionQuery$hashData$Trailing)
 
 	finPartCombos <- unique(lapply(apply(expand.grid(rep(list(c("Trailing","Leading","Peduncle")),3)),1,unique),sort))
 	
