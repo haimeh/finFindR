@@ -19,7 +19,7 @@ networks <- system.file("extdata", package="finFindR")
 load(file.path(system.file("extdata", package="finFindR"),"hashSVD.Rdata"))
 
 #pathNet <- mxnet::mx.model.load(file.path(networks,'SWA_finTrace_fin'), 1000)
-pathNet <- mxnet::mx.model.load(file.path(networks,             'SWA_2_traceRefine_10:20:Jun:2023_fin'), 0000)
+pathNet <- mxnet::mx.model.load(file.path(networks,             'SWA_2_traceRefine_10-20-Jun-2023_fin'), 0000)
 #pathNet <- mxnet::mx.model.load(file.path(networks,             'SWA_cont2_traceLong7_bn_6,10,5_RGB_fin'), 0000)
 #pathNet <- mxnet::mx.model.load(file.path("../../inst/extdata",'SWA_cont2_traceLong7_bn_6,10,5_RGB_fin'), 0000)
 #pathNet <- mxnet::mx.model.load(file.path("../../inst/extdata",'prime_traceLong2_bn_6,10,5_RGB_fin'), 0000)
