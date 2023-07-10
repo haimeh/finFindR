@@ -35,7 +35,6 @@ mxnetModel <- mxnet::mx.model.load(file.path(networks,'fin_triplet32_4096_final'
 # ==================================================================================================================
 
 function(input, output, session) {
-	source("../../R/extractFeatures.R")
 	
 	# -- get functions used locally
 	for (file in list.files(path=".",pattern="*_local.R",full.names = T))
